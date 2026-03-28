@@ -1,0 +1,44 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables
+.env
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Model files (large)
+resources/
+Qwen3-*/
+*.safetensors
+*.bin
+
+# Output files
+outputs/
+results/
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+wandb/

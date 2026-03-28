@@ -1,0 +1,41 @@
+method:
+  name: "GRPO"
+  type: "training"
+  description: "Group Relative Policy Optimization"
+
+training:
+  learning_rate: 5.0e-6
+  adam_beta1: 0.9
+  adam_beta2: 0.99
+  weight_decay: 0.1
+  warmup_steps: 0.1
+  lr_scheduler_type: "cosine"
+  logging_steps: 1
+  bf16: true
+  
+  # GRPO specific
+  num_generations: 8
+  per_device_train_batch_size: 8
+  gradient_accumulation_steps: 4
+  
+  # Generation
+  max_completion_length: 200
+  
+  # Training
+  num_train_epochs: 1
+  max_grad_norm: 0.1
+  
+  # Saving
+  save_steps: 100
+  output_dir: "outputs"
+  
+  # vLLM acceleration
+  use_vllm: false
+  vllm_gpu_memory_utilization: 0.3
+
+reward:
+  xml_count_weight: 0.5
+  soft_format_weight: 0.5
+  strict_format_weight: 0.5
+  integer_weight: 0.5
+  correctness_weight: 2.0

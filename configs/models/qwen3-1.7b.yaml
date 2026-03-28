@@ -1,0 +1,25 @@
+model:
+  name: "Qwen3-1.7B"
+  huggingface_id: "Qwen/Qwen3-1.7B"
+  local_dir: "./resources/Qwen3-1.7B"
+  params: "1.7B"
+  dtype: "bfloat16"
+  layers: 28
+  attention_heads: 16
+  kv_heads: 8
+  context_length: 32768
+  memory:
+    fp16: "4GB"
+    int8: "2GB"
+    int4: "1GB"
+    inference_total: "5GB"
+  batch_sizes:
+    "4GB": 1
+    "8GB": 2
+    "16GB": 4
+    "24GB": 8
+  generation:
+    max_new_tokens: 512
+    temperature: 0.7
+    top_p: 0.9
+    do_sample: true

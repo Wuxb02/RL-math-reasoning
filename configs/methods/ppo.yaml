@@ -1,0 +1,45 @@
+method:
+  name: "PPO"
+  type: "training"
+  description: "Proximal Policy Optimization with value head"
+
+training:
+  learning_rate: 1.0e-5
+  adam_beta1: 0.9
+  adam_beta2: 0.99
+  weight_decay: 0.1
+  warmup_steps: 0.1
+  lr_scheduler_type: "cosine"
+  logging_steps: 1
+  
+  # PPO specific
+  ppo_epochs: 4
+  mini_batch_size: 4
+  batch_size: 16
+  
+  # KL penalty
+  kl_penalty: "kl"
+  init_kl_coef: 0.2
+  adap_kl_ctrl: true
+  target: 6.0
+  
+  # Training
+  num_train_epochs: 1
+  bf16: true
+  max_grad_norm: 0.1
+  gradient_accumulation_steps: 4
+  
+  # Generation
+  max_new_tokens: 200
+  temperature: 0.7
+  top_p: 0.9
+  do_sample: true
+  
+  # Saving
+  save_steps: 100
+  output_dir: "outputs"
+
+reward:
+  xml_format_weight: 0.5
+  integer_answer_weight: 0.5
+  correctness_weight: 2.0

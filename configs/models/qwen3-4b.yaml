@@ -1,0 +1,25 @@
+model:
+  name: "Qwen3-4B"
+  huggingface_id: "Qwen/Qwen3-4B"
+  local_dir: "./resources/Qwen3-4B"
+  params: "4B"
+  dtype: "bfloat16"
+  layers: 36
+  attention_heads: 32
+  kv_heads: 8
+  context_length: 131072
+  memory:
+    fp16: "9GB"
+    int8: "5GB"
+    int4: "2.5GB"
+    inference_total: "12GB"
+  batch_sizes:
+    "8GB": 1
+    "16GB": 2
+    "24GB": 4
+    "32GB": 8
+  generation:
+    max_new_tokens: 512
+    temperature: 0.7
+    top_p: 0.9
+    do_sample: true
