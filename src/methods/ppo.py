@@ -7,10 +7,8 @@ import wandb
 from .base import BaseMethod
 from ..rewards.math_rewards import (
     extract_xml_answer,
-    correctness_reward_func,
-    int_reward_func,
-    strict_format_reward_func,
-    soft_format_reward_func,
+    numeric_equivalence,
+    parse_number,
 )
 
 
@@ -94,10 +92,15 @@ class PPOMethod(BaseMethod):
             reward = 0.0
             extracted = extract_xml_answer(response)
 
-            if extracted == answer:
+            if not extracted:
+                reward -= 1.0
+            elif numeric_equivalence(extracted, answer):
                 reward += self.reward_config["correctness_weight"]
+            else:
+                reward -= 0.5
 
-            if extracted.isdigit():
+            num = parse_number(extracted)
+            if num is not None and num == int(num):
                 reward += self.reward_config["integer_answer_weight"]
 
             if "<reasoning>" in response and "<answer>" in response:

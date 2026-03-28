@@ -4,7 +4,10 @@ from .math_rewards import (
     strict_format_reward_func,
     soft_format_reward_func,
     xmlcount_reward_func,
+    reasoning_quality_reward_func,
     extract_xml_answer,
+    parse_number,
+    numeric_equivalence,
 )
 
 __all__ = [
@@ -13,5 +16,8 @@ __all__ = [
     "strict_format_reward_func",
     "soft_format_reward_func",
     "xmlcount_reward_func",
+    "reasoning_quality_reward_func",
     "extract_xml_answer",
+    "parse_number",
+    "numeric_equivalence",
 ]

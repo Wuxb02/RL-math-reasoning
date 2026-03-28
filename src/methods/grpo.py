@@ -11,7 +11,9 @@ from ..rewards.math_rewards import (
     strict_format_reward_func,
     soft_format_reward_func,
     xmlcount_reward_func,
+    reasoning_quality_reward_func,
     extract_xml_answer,
+    numeric_equivalence,
 )
 
 
@@ -21,6 +23,16 @@ class GRPOMethod(BaseMethod):
         self.training_config = self.config["training"]
 
     def run(self, model, tokenizer, dataset, output_dir: str) -> Dict[str, Any]:
+        reward_config = self.config.get("reward", {})
+        reward_weights = [
+            reward_config.get("xml_count_weight", 0.5),
+            reward_config.get("soft_format_weight", 0.5),
+            reward_config.get("strict_format_weight", 0.5),
+            reward_config.get("integer_weight", 0.5),
+            reward_config.get("reasoning_quality_weight", 0.3),
+            reward_config.get("correctness_weight", 2.0),
+        ]
+
         grpo_config = GRPOConfig(
             output_dir=output_dir,
             run_name=f"{model.config._name_or_path.split('/')[-1]}-GRPO-gsm8k",
@@ -48,6 +60,7 @@ class GRPOMethod(BaseMethod):
             vllm_gpu_memory_utilization=self.training_config.get(
                 "vllm_gpu_memory_utilization", 0.3
             ),
+            reward_weights=reward_weights,
             report_to="wandb",
         )
 
@@ -59,6 +72,7 @@ class GRPOMethod(BaseMethod):
                 soft_format_reward_func,
                 strict_format_reward_func,
                 int_reward_func,
+                reasoning_quality_reward_func,
                 correctness_reward_func,
             ],
             args=grpo_config,
@@ -107,7 +121,7 @@ class GRPOMethod(BaseMethod):
             ]
             extracted_answer = extract_xml_answer(response)
 
-            if extracted_answer == expected_answer:
+            if numeric_equivalence(extracted_answer, expected_answer):
                 correct += 1
             if "<reasoning>" in response and "<answer>" in response:
                 format_correct += 1
