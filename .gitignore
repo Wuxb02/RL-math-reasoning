@@ -28,9 +28,9 @@ Qwen3-*/
 *.safetensors
 *.bin
 
-# Output files
+# Output files (keep evaluation results, ignore trained models)
 outputs/
-results/
+!outputs/results/
 
 # Jupyter notebook checkpoints
 .ipynb_checkpoints/
