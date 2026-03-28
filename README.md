@@ -188,7 +188,7 @@ GRPO-math/
 
 CoT 是纯推理方法，不涉及训练损失。评估时使用标准语言模型的交叉熵损失：
 
-$$L_{\text{CoT}} = -\sum_{t=1}^{T} \log P(x_t | x_{<t}, \text{prompt})$$
+$$L_{\text{CoT}} = -\sum_{t=1}^{T} \log P(x_t | x_{\lt t}, \text{prompt})$$
 
 实际实现中，我们通过精心设计的 System Prompt 引导模型生成结构化的推理过程，然后从 `<answer>` 标签中提取最终答案。
 
