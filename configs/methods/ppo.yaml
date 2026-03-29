@@ -41,5 +41,8 @@ training:
 
 reward:
   xml_format_weight: 0.5
+  soft_format_weight: 0.5
+  strict_format_weight: 0.5
   integer_answer_weight: 0.5
+  reasoning_quality_weight: 0.3
   correctness_weight: 2.0

@@ -13,10 +13,10 @@ training:
   logging_steps: 1
   bf16: true
   
-  # GRPO specific
-  num_generations: 8
-  per_device_train_batch_size: 8
-  gradient_accumulation_steps: 4
+# GRPO specific
+num_generations: 4
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 4
   
   # Generation
   max_completion_length: 200

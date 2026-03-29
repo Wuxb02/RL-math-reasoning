@@ -1,4 +1,5 @@
 import torch
+import logging
 from typing import Dict, Any, List
 from transformers import AutoModelForCausalLM
 from trl import PPOConfig, PPOTrainer, AutoModelForCausalLMWithValueHead
@@ -15,6 +16,8 @@ from ..rewards.math_rewards import (
     xmlcount_reward_func,
     reasoning_quality_reward_func,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class PPOMethod(BaseMethod):
@@ -128,8 +131,15 @@ class PPOMethod(BaseMethod):
                     else:
                         reward_value = func(completion)[0]
                     total_reward += reward_value * weight
-                except Exception:
-                    pass
+                except (ValueError, TypeError, KeyError, IndexError) as e:
+                    logger.warning(
+                        f"Reward function {func.__name__} failed for sample {i}: {e}. "
+                        f"Skipping this reward component."
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Unexpected error in reward function {func.__name__} for sample {i}: {e}"
+                    )
 
             rewards.append(torch.tensor(total_reward))
 
