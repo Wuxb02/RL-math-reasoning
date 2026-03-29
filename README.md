@@ -24,7 +24,14 @@ uv run python scripts/train.py --model configs/models/qwen3-0.6b.yaml --method c
 复制 `.env.example` 为 `.env`，填入你的 WandB API Key：
 
 ```bash
+# Linux/macOS
 cp .env.example .env
+
+# Windows (CMD)
+copy .env.example .env
+
+# Windows (PowerShell)
+Copy-Item .env.example .env
 # 编辑 .env 文件，填入 WANDB_API_KEY
 ```
 
@@ -43,11 +50,12 @@ jupyter notebook download_models.ipynb
 #### 批量运行（推荐）
 
 ```bash
-# 第一步：批量训练所有 3×3=9 个组合
-python scripts/run_training.py
+# 使用 uv 运行（推荐，跨平台）
+uv run python scripts/run_training.py
+uv run python scripts/run_evaluation.py
 
-# 第二步：批量评估所有训练后的模型
-python scripts/run_evaluation.py
+# 或使用完整 Python 路径（Windows）
+"D:\anaconda\python.exe" "F:\RL-math-reasoning\scripts\run_training.py"
 ```
 
 训练和评估完全分离，训练输出保存在 `outputs/checkpoints/`，评估结果保存在 `outputs/results/`。
@@ -55,32 +63,103 @@ python scripts/run_evaluation.py
 #### 单个运行
 
 ```bash
-# 单个训练
-python scripts/train.py \
-    --model configs/models/qwen3-0.6b.yaml \
-    --method configs/methods/grpo.yaml \
-    --wandb
+# 单个训练（使用 uv）
+uv run python scripts/train.py --model configs/models/qwen3-0.6b.yaml --method configs/methods/grpo.yaml --wandb
 
 # 单个评估（CoT 无需训练，直接评估）
-python scripts/evaluate.py \
-    --model configs/models/qwen3-0.6b.yaml \
-    --method CoT
+uv run python scripts/evaluate.py --model configs/models/qwen3-0.6b.yaml --method CoT
 
 # 单个评估（PPO/GRPO 需指定 checkpoint）
-python scripts/evaluate.py \
-    --model configs/models/qwen3-0.6b.yaml \
-    --checkpoint outputs/checkpoints/Qwen3-0.6B-GRPO \
-    --method GRPO
+uv run python scripts/evaluate.py --model configs/models/qwen3-0.6b.yaml --checkpoint outputs/checkpoints/Qwen3-0.6B-GRPO --method GRPO
+
+# Windows 完整路径版本
+"D:\anaconda\python.exe" "F:\RL-math-reasoning\scripts\train.py" --model configs/models/qwen3-0.6b.yaml --method configs/methods/grpo.yaml --wandb
 ```
 
 ### 5. 查看结果
 
 ```bash
-# 查看评估对比报告
+# Linux/macOS
 cat outputs/results/comparison_report.txt
-
-# 查看原始结果数据
 cat outputs/results/evaluation_results.json
+
+# Windows (CMD)
+type outputs\results\comparison_report.txt
+type outputs\results\evaluation_results.json
+
+# Windows (PowerShell)
+Get-Content outputs\results\comparison_report.txt
+Get-Content outputs\results\evaluation_results.json
+```
+
+## Windows 环境使用
+
+本项目在 Windows 环境下运行时，需要注意以下几点：
+
+### 1. Python 路径配置
+
+由于项目使用 `uv` 管理依赖，在 Windows 下可以直接使用 uv 运行脚本：
+
+```bash
+# 推荐：使用 uv run（自动处理依赖）
+uv run python scripts/train.py --model configs/models/qwen3-0.6b.yaml --method configs/methods/grpo.yaml --wandb
+
+# 或使用完整 Python 路径
+"D:\anaconda\python.exe" "F:\RL-math-reasoning\scripts\train.py" --model configs/models/qwen3-0.6b.yaml --method configs/methods/grpo.yaml --wandb
+```
+
+### 2. 常用命令速查
+
+```bash
+# 训练命令
+uv run python scripts/train.py --model configs/models/qwen3-0.6b.yaml --method configs/methods/grpo.yaml --wandb
+uv run python scripts/train.py --model configs/models/qwen3-1.7b.yaml --method configs/methods/ppo.yaml --wandb
+uv run python scripts/train.py --model configs/models/qwen3-4b.yaml --method configs/methods/cot.yaml --wandb
+
+# 评估命令
+uv run python scripts/evaluate.py --model configs/models/qwen3-0.6b.yaml --method CoT
+uv run python scripts/evaluate.py --model configs/models/qwen3-0.6b.yaml --checkpoint outputs/checkpoints\Qwen3-0.6B-GRPO --method GRPO
+
+# 批量训练
+uv run python scripts/run_training.py
+
+# 批量评估
+uv run python scripts/run_evaluation.py
+```
+
+### 3. Windows Path.join 注意事项
+
+在 Windows 环境下，路径使用反斜杠 `\`，但 Python 代码中通常使用正斜杠 `/`（跨平台兼容）。以下是兼容写法：
+
+```python
+# 推荐：使用 pathlib（跨平台兼容）
+from pathlib import Path
+output_dir = Path("outputs") / "checkpoints" / "Qwen3-0.6B-GRPO"
+
+# 或使用 os.path（自动处理路径分隔符）
+import os
+output_dir = os.path.join("outputs", "checkpoints", "Qwen3-0.6B-GRPO")
+```
+
+### 4. 常见问题
+
+**Q: 运行脚本报错 "No module named 'xxx'"**
+```bash
+# 确保依赖已安装
+uv sync
+```
+
+**Q: CUDA/MPS 不可用**
+```bash
+# 检查 GPU 是否可用
+python -c "import torch; print(torch.cuda.is_available())"
+```
+
+**Q: WandB 报错**
+```bash
+# 确保 .env 文件中 WandB API Key 已正确配置
+# 或者在环境变量中设置
+set WANDB_API_KEY=your_api_key_here
 ```
 
 ## 项目结构
