@@ -8,7 +8,12 @@ from .base import BaseMethod
 from ..rewards.math_rewards import (
     extract_xml_answer,
     numeric_equivalence,
-    parse_number,
+    correctness_reward_func,
+    int_reward_func,
+    strict_format_reward_func,
+    soft_format_reward_func,
+    xmlcount_reward_func,
+    reasoning_quality_reward_func,
 )
 
 
@@ -87,26 +92,46 @@ class PPOMethod(BaseMethod):
         responses = tokenizer.batch_decode(response_tensors, skip_special_tokens=True)
         answers = batch["answer"]
 
+        completions = [[{"content": response}] for response in responses]
+        answer_list = list(answers)
+
+        reward_weights = [
+            self.reward_config.get("xml_format_weight", 0.5),
+            self.reward_config.get("soft_format_weight", 0.5),
+            self.reward_config.get("strict_format_weight", 0.5),
+            self.reward_config.get("integer_answer_weight", 0.5),
+            self.reward_config.get("reasoning_quality_weight", 0.3),
+            self.reward_config.get("correctness_weight", 2.0),
+        ]
+
+        reward_funcs = [
+            xmlcount_reward_func,
+            soft_format_reward_func,
+            strict_format_reward_func,
+            int_reward_func,
+            reasoning_quality_reward_func,
+            correctness_reward_func,
+        ]
+
         rewards = []
-        for response, answer in zip(responses, answers):
-            reward = 0.0
-            extracted = extract_xml_answer(response)
+        for i in range(len(responses)):
+            total_reward = 0.0
+            completion = [completions[i]]
+            answer = [answer_list[i]]
 
-            if not extracted:
-                reward -= 1.0
-            elif numeric_equivalence(extracted, answer):
-                reward += self.reward_config["correctness_weight"]
-            else:
-                reward -= 0.5
+            for func, weight in zip(reward_funcs, reward_weights):
+                try:
+                    if func == correctness_reward_func:
+                        reward_value = func([], completion, answer)[0]
+                    elif func == int_reward_func:
+                        reward_value = func(completion, answer)[0]
+                    else:
+                        reward_value = func(completion)[0]
+                    total_reward += reward_value * weight
+                except Exception:
+                    pass
 
-            num = parse_number(extracted)
-            if num is not None and num == int(num):
-                reward += self.reward_config["integer_answer_weight"]
-
-            if "<reasoning>" in response and "<answer>" in response:
-                reward += self.reward_config["xml_format_weight"]
-
-            rewards.append(torch.tensor(reward))
+            rewards.append(torch.tensor(total_reward))
 
         return rewards
 
@@ -147,7 +172,7 @@ class PPOMethod(BaseMethod):
             ]
             extracted_answer = extract_xml_answer(response)
 
-            if extracted_answer == expected_answer:
+            if numeric_equivalence(extracted_answer, expected_answer):
                 correct += 1
             if "<reasoning>" in response and "<answer>" in response:
                 format_correct += 1
