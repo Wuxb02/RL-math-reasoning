@@ -14,7 +14,7 @@ load_env()
 from src.data.gsm8k import get_gsm8k_dataset
 from src.models.loader import ModelLoader
 from src.methods.cot import CoTMethod
-from src.methods.ppo import PPOMethod
+from src.methods.rloo import RLOOMethod
 from src.methods.grpo import GRPOMethod
 
 
@@ -26,7 +26,7 @@ DEFAULT_MODELS = [
 
 DEFAULT_METHODS = [
     "configs/methods/cot.yaml",
-    "configs/methods/ppo.yaml",
+    "configs/methods/rloo.yaml",
     "configs/methods/grpo.yaml",
 ]
 
@@ -47,7 +47,7 @@ def run_evaluation(
 
         import yaml
 
-        with open(method_config, "r") as f:
+        with open(method_config, "r", encoding="utf-8") as f:
             method_cfg = yaml.safe_load(f)
         method_name = method_cfg["method"]["name"]
 
@@ -71,8 +71,8 @@ def run_evaluation(
 
         if method_name == "CoT":
             method = CoTMethod(method_config)
-        elif method_name == "PPO":
-            method = PPOMethod(method_config)
+        elif method_name == "RLOO":
+            method = RLOOMethod(method_config)
         elif method_name == "GRPO":
             method = GRPOMethod(method_config)
         else:
@@ -127,7 +127,7 @@ def generate_comparison_report(results: list) -> str:
     report.append("EVALUATION COMPARISON REPORT")
     report.append("=" * 80)
 
-    report.append("\n## 1. 方法对比 (CoT vs PPO vs GRPO)")
+    report.append("\n## 1. 方法对比 (CoT vs RLOO vs GRPO)")
     report.append("-" * 60)
     report.append(
         f"{'方法':<15} {'平均准确率':<15} {'平均格式合规':<15} {'最佳模型':<20}"
@@ -256,7 +256,7 @@ def main():
         model_name = Path(model_config).stem
         import yaml
 
-        with open(method_config, "r") as f:
+        with open(method_config, "r", encoding="utf-8") as f:
             method_cfg = yaml.safe_load(f)
         method_name = method_cfg["method"]["name"]
 

@@ -15,7 +15,7 @@ import wandb
 from src.data.gsm8k import get_gsm8k_dataset
 from src.models.loader import ModelLoader
 from src.methods.cot import CoTMethod
-from src.methods.ppo import PPOMethod
+from src.methods.rloo import RLOOMethod
 from src.methods.grpo import GRPOMethod
 
 
@@ -27,7 +27,7 @@ DEFAULT_MODELS = [
 
 DEFAULT_METHODS = [
     "configs/methods/cot.yaml",
-    "configs/methods/ppo.yaml",
+    "configs/methods/rloo.yaml",
     "configs/methods/grpo.yaml",
 ]
 
@@ -45,7 +45,7 @@ def run_training(model_config: str, method_config: str, output_base: str) -> dic
 
         import yaml
 
-        with open(method_config, "r") as f:
+        with open(method_config, "r", encoding="utf-8") as f:
             method_cfg = yaml.safe_load(f)
         method_name = method_cfg["method"]["name"]
 
@@ -59,9 +59,9 @@ def run_training(model_config: str, method_config: str, output_base: str) -> dic
                 "reason": "CoT does not require training",
             }
 
-        if method_name == "PPO":
+        if method_name == "RLOO":
             dataset = get_gsm8k_dataset(split="train")
-            method = PPOMethod(method_config)
+            method = RLOOMethod(method_config)
             results = method.run(model, tokenizer, dataset, output_dir)
         elif method_name == "GRPO":
             dataset = get_gsm8k_dataset(split="train")

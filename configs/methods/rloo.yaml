@@ -1,7 +1,7 @@
 method:
-  name: "PPO"
+  name: "RLOO"
   type: "training"
-  description: "Proximal Policy Optimization with value head"
+  description: "Reinforce Leave-One-Out (RLOO) — replaces PPO for TRL 1.0.0+"
 
 training:
   learning_rate: 1.0e-5
@@ -12,16 +12,13 @@ training:
   lr_scheduler_type: "cosine"
   logging_steps: 1
   
-  # PPO specific
-  ppo_epochs: 4
-  mini_batch_size: 4
-  batch_size: 16
+  # RLOO specific
+  num_generations: 4          # G completions per prompt (RLOO advantage baseline)
+  per_device_train_batch_size: 4
+  rloo_iterations: 1          # Number of gradient steps per batch (like ppo_epochs)
   
   # KL penalty
-  kl_penalty: "kl"
-  init_kl_coef: 0.2
-  adap_kl_ctrl: true
-  target: 6.0
+  beta: 0.05                  # KL penalty coefficient (RLOO uses beta, not kl_coef)
   
   # Training
   num_train_epochs: 1
@@ -30,7 +27,7 @@ training:
   gradient_accumulation_steps: 4
   
   # Generation
-  max_new_tokens: 200
+  max_completion_length: 200  # Replaces max_new_tokens
   temperature: 0.7
   top_p: 0.9
   do_sample: true

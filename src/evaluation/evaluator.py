@@ -8,8 +8,7 @@ from tqdm import tqdm
 from ..data.gsm8k import get_gsm8k_dataset
 from ..models.loader import ModelLoader
 from ..methods.cot import CoTMethod
-from ..methods.ppo import PPOMethod
-from ..methods.grpo import GRPOMethod
+from ..methods.rloo import RLOOMethod
 from .metrics import ExperimentEvaluator
 
 
@@ -39,12 +38,14 @@ class ExperimentEvaluator:
         if method_name == "CoT":
             method = CoTMethod(method_config)
             results = method.run(model, tokenizer, test_dataset, output_dir)
-        elif method_name == "PPO":
+        elif method_name == "RLOO":
             train_dataset = get_gsm8k_dataset(split="train")
-            method = PPOMethod(method_config)
+            method = RLOOMethod(method_config)
             results = method.run(model, tokenizer, train_dataset, output_dir)
             results = method.evaluate(model, tokenizer, test_dataset)
         elif method_name == "GRPO":
+            from ..methods.grpo import GRPOMethod
+
             train_dataset = get_gsm8k_dataset(split="train")
             method = GRPOMethod(method_config)
             results = method.run(model, tokenizer, train_dataset, output_dir)

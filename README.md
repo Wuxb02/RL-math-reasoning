@@ -1,6 +1,6 @@
 # GRPO-Math: 数学推理强化学习对比实验
 
-对比研究 **CoT（思维链）**、**PPO（近端策略优化）** 和 **GRPO（组相对策略优化）** 三种方法在数学推理任务上的效果差异，并测试 **Qwen3 系列不同大小模型（0.6B、1.7B、4B）** 的能力边界。
+对比研究 **CoT（思维链）**、**RLOO（Reinforce Leave-One-Out）** 和 **GRPO（组相对策略优化）** 三种方法在数学推理任务上的效果差异，并测试 **Qwen3 系列不同大小模型（0.6B、1.7B、4B）** 的能力边界。
 
 ## 快速开始
 
@@ -64,12 +64,12 @@ uv run python scripts/run_evaluation.py
 
 ```bash
 # 单个训练（使用 uv）
-uv run python scripts/train.py --model configs/models/qwen3-0.6b.yaml --method configs/methods/grpo.yaml --wandb
+uv run python scripts/train.py --model configs/models/qwen3-0.6b.yaml --method configs/methods/rloo.yaml --wandb
 
 # 单个评估（CoT 无需训练，直接评估）
 uv run python scripts/evaluate.py --model configs/models/qwen3-0.6b.yaml --method CoT
 
-# 单个评估（PPO/GRPO 需指定 checkpoint）
+# 单个评估（RLOO/GRPO 需指定 checkpoint）
 uv run python scripts/evaluate.py --model configs/models/qwen3-0.6b.yaml --checkpoint outputs/checkpoints/Qwen3-0.6B-GRPO --method GRPO
 
 # Windows 完整路径版本
@@ -113,7 +113,7 @@ uv run python scripts/train.py --model configs/models/qwen3-0.6b.yaml --method c
 ```bash
 # 训练命令
 uv run python scripts/train.py --model configs/models/qwen3-0.6b.yaml --method configs/methods/grpo.yaml --wandb
-uv run python scripts/train.py --model configs/models/qwen3-1.7b.yaml --method configs/methods/ppo.yaml --wandb
+uv run python scripts/train.py --model configs/models/qwen3-1.7b.yaml --method configs/methods/rloo.yaml --wandb
 uv run python scripts/train.py --model configs/models/qwen3-4b.yaml --method configs/methods/cot.yaml --wandb
 
 # 评估命令
@@ -173,7 +173,7 @@ GRPO-math/
 │   │   └── qwen3-4b.yaml
 │   └── methods/             # 方法配置
 │       ├── cot.yaml
-│       ├── ppo.yaml
+│       ├── rloo.yaml
 │       └── grpo.yaml
 ├── src/
 │   ├── data/                # GSM8K 数据加载
@@ -182,7 +182,7 @@ GRPO-math/
 │   │   └── loader.py
 │   ├── methods/             # 三种方法实现
 │   │   ├── cot.py           # CoT 推理基线
-│   │   ├── ppo.py           # PPO 训练
+│   │   ├── rloo.py          # RLOO 训练
 │   │   └── grpo.py          # GRPO 训练
 │   ├── rewards/             # 奖励函数
 │   │   └── math_rewards.py
@@ -230,9 +230,9 @@ GRPO-math/
 │  └───────────────────────┘    └─────────────────────────────┘   │
 │           ↓                                                     │
 │  outputs/checkpoints/                                           │
-│    ├── Qwen3-0.6B-PPO/                                          │
+│    ├── Qwen3-0.6B-RLOO/                                          │
 │    ├── Qwen3-0.6B-GRPO/                                         │
-│    ├── Qwen3-1.7B-PPO/                                          │
+│    ├── Qwen3-1.7B-RLOO/                                          │
 │    └── ...                                                      │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
@@ -254,7 +254,7 @@ GRPO-math/
 | 方法 | 类型 | 核心思想 | 显存占用 | 训练方式 |
 |------|------|----------|----------|----------|
 | **CoT** | 推理 | 提示词引导逐步推理 | 低 | 无需训练 |
-| **PPO** | 训练 | 策略梯度 + 价值函数 + KL惩罚 | 高 | 需要价值模型 |
+| **RLOO** | 训练 | REINFORCE 风格优化 + Leave-One-Out 基线 | 中 | 无需价值模型 |
 | **GRPO** | 训练 | 组内相对奖励归一化 | 中 | 无需价值模型 |
 
 ### CoT（Chain-of-Thought）
@@ -271,36 +271,42 @@ $$L_{\text{CoT}} = -\sum_{t=1}^{T} \log P(x_t | x_{\lt t}, \text{prompt})$$
 
 实际实现中，我们通过精心设计的 System Prompt 引导模型生成结构化的推理过程，然后从 `<answer>` 标签中提取最终答案。
 
-### PPO（Proximal Policy Optimization）
+### RLOO（Reinforce Leave-One-Out）
 
-- 经典的强化学习算法，使用裁剪目标函数
-- 需要策略模型、价值模型和参考模型
-- 训练稳定但显存占用高
+- TRL 1.0.0 推荐的 PPO 替代方案，论文证明在 RLHF 场景下性能优于 PPO
+- 使用 Leave-One-Out 基线估计优势函数，无需训练价值模型
+- 训练稳定，显存占用比 PPO 降低约 33%
 
 **损失函数**：
 
-PPO 的目标函数由三部分组成：
+RLOO 的核心思想是使用组内其他样本的平均奖励作为基线，计算每个样本的优势值：
 
-$$L^{\text{PPO}} = L^{\text{CLIP}} + c_1 L^{\text{VF}} - c_2 L^{\text{Entropy}}$$
+$$L^{\text{RLOO}} = -\frac{1}{G} \sum_{i=1}^{G} \min\left( \rho_i \hat{A}_i, \text{clip}(\rho_i, 1-\epsilon, 1+\epsilon) \hat{A}_i \right)$$
 
 其中：
 
-1. **策略损失（Clipped Surrogate Objective）**：
-$$L^{\text{CLIP}} = \mathbb{E}_t \left[ \min\left( r_t(\theta) A_t, \text{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon) A_t \right) \right]$$
-- $r_t(\theta) = \frac{\pi_\theta(a_t|s_t)}{\pi_{\theta_{\text{old}}}(a_t|s_t)}$ 是重要性采样比率
-- $A_t$ 是优势函数，由 GAE（Generalized Advantage Estimation）计算
-- $\epsilon$ 是裁剪参数（通常为 0.2）
+1. **Leave-One-Out 基线**：
+$$b_i = \frac{1}{G-1} \sum_{j \neq i} r_j$$
+- 对每个 completion $i$，使用组内其他所有样本的奖励均值作为基线
+- 优势 $A_i = r_i - b_i$
 
-2. **价值函数损失**：
-$$L^{\text{VF}} = \mathbb{E}_t \left[ (V_\theta(s_t) - V_{\text{target}})^2 \right]$$
-- 需要训练额外的价值模型来估计状态价值
+2. **重要性采样比率**：
+$$\rho_i = \frac{\pi_\theta(o_i|x)}{\pi_{\theta_{\text{old}}}(o_i|x)}$$
 
-3. **熵正则化**：
-$$L^{\text{Entropy}} = \mathbb{E}_t \left[ \pi_\theta(a_t|s_t) \log \pi_\theta(a_t|s_t) \right]$$
-- 鼓励探索，防止过早收敛
+3. **KL 散度约束**：
+$$\mathcal{L}_{\text{KL}} = \beta \cdot D_{\text{KL}}(\pi_\theta \| \pi_{\text{ref}})$$
+- 使用参考模型 $\pi_{\text{ref}}$ 约束策略偏离
+- $\beta$ 控制 KL 惩罚强度
 
-**KL 惩罚**：PPO 还可以添加 KL 散度惩罚来约束策略不要偏离参考模型太远：
-$$L_{\text{KL}} = \beta \cdot D_{\text{KL}}(\pi_\theta \| \pi_{\text{ref}})$$
+**RLOO vs PPO 的关键区别**：
+
+| 特性 | PPO | RLOO |
+|------|-----|------|
+| 优势估计 | 需要价值模型 + GAE | Leave-One-Out 基线 |
+| 模型数量 | 3个（策略+价值+参考） | 2个（策略+参考） |
+| 显存占用 | 高 | 中（~33% 减少） |
+| 采样效率 | 每步1个响应 | 每步G个响应 |
+| 适用场景 | 通用RL任务 | 有明确奖励信号的任务 |
 
 ### GRPO（Group Relative Policy Optimization）
 
@@ -331,14 +337,14 @@ $$D_{\text{KL}}(\pi_\theta \| \pi_{\text{ref}}) = \mathbb{E}_{o \sim \pi_\theta}
 - 使用参考模型 $\pi_{\text{ref}}$（通常初始化为训练前的模型）
 - $\beta$ 控制 KL 惩罚强度
 
-**GRPO vs PPO 的关键区别**：
+**GRPO vs RLOO 的关键区别**：
 
-| 特性 | PPO | GRPO |
-|------|-----|------|
-| 优势估计 | 需要价值模型 + GAE | 组内相对奖励归一化 |
-| 模型数量 | 3个（策略+价值+参考） | 2个（策略+参考） |
-| 显存占用 | 高 | 低（~33% 减少） |
-| 采样效率 | 每步1个响应 | 每步G个响应 |
+| 特性 | RLOO | GRPO |
+|------|------|------|
+| 优势估计 | Leave-One-Out 基线 | 组内均值+标准差归一化 |
+| 模型数量 | 2个（策略+参考） | 2个（策略+参考） |
+| 显存占用 | 中 | 中 |
+| 采样效率 | 每步G个响应 | 每步G个响应 |
 | 适用场景 | 通用RL任务 | 有明确奖励信号的任务 |
 
 ## 模型规格
@@ -616,13 +622,13 @@ def numeric_equivalence(answer: str, expected: str) -> bool:
 EVALUATION COMPARISON REPORT
 ================================================================================
 
-## 1. 方法对比 (CoT vs PPO vs GRPO)
+## 1. 方法对比 (CoT vs RLOO vs GRPO)
 ------------------------------------------------------------
 方法             平均准确率        平均格式合规        最佳模型
 ------------------------------------------------------------
 CoT              45.2%            78.3%            Qwen3-4B
 GRPO             62.1%            92.5%            Qwen3-4B
-PPO              58.7%            89.2%            Qwen3-4B
+RLOO             58.7%            89.2%            Qwen3-4B
 
 ## 2. 模型规模对比 (0.6B vs 1.7B vs 4B)
 ------------------------------------------------------------
@@ -641,6 +647,7 @@ Qwen3-4B            72.4%            GRPO             84.6%
 ## 参考资料
 
 - [DeepSeek-R1](https://github.com/deepseek-ai/DeepSeek-R1) - GRPO 方法来源
-- [TRL](https://github.com/huggingface/trl) - PPO 和 GRPO 实现
+- [TRL](https://github.com/huggingface/trl) - RLOO 和 GRPO 实现
+- [RLOO Paper](https://huggingface.co/papers/2402.14740) - Back to Basics: Revisiting REINFORCE Style Optimization
 - [GSM8K](https://github.com/openai/grade-school-math) - 数学推理基准
 - [Qwen3](https://qwenlm.github.io/blog/qwen3/) - 模型架构详情

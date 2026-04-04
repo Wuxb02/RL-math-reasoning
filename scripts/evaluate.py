@@ -12,7 +12,7 @@ load_env()
 from src.data.gsm8k import get_gsm8k_dataset
 from src.models.loader import ModelLoader
 from src.methods.cot import CoTMethod
-from src.methods.ppo import PPOMethod
+from src.methods.rloo import RLOOMethod
 from src.methods.grpo import GRPOMethod
 
 
@@ -25,7 +25,7 @@ def main():
         "--checkpoint", type=str, default=None, help="Path to trained checkpoint"
     )
     parser.add_argument(
-        "--method", type=str, required=True, help="Method name: CoT, PPO, or GRPO"
+        "--method", type=str, required=True, help="Method name: CoT, RLOO, or GRPO"
     )
     parser.add_argument(
         "--output",
@@ -59,8 +59,8 @@ def main():
 
     if args.method == "CoT":
         method = CoTMethod()
-    elif args.method == "PPO":
-        method = PPOMethod()
+    elif args.method == "RLOO":
+        method = RLOOMethod()
     elif args.method == "GRPO":
         method = GRPOMethod()
     else:

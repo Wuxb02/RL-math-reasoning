@@ -12,8 +12,7 @@ import wandb
 from src.data.gsm8k import get_gsm8k_dataset
 from src.models.loader import ModelLoader
 from src.methods.cot import CoTMethod
-from src.methods.ppo import PPOMethod
-from src.methods.grpo import GRPOMethod
+from src.methods.rloo import RLOOMethod
 
 
 def main():
@@ -39,7 +38,7 @@ def main():
 
     import yaml
 
-    with open(args.method, "r") as f:
+    with open(args.method, "r", encoding="utf-8") as f:
         method_cfg = yaml.safe_load(f)
     method_name = method_cfg["method"]["name"]
 
@@ -50,11 +49,13 @@ def main():
         dataset = get_gsm8k_dataset(split="test")
         method = CoTMethod(args.method)
         results = method.run(model, tokenizer, dataset, args.output)
-    elif method_name == "PPO":
+    elif method_name == "RLOO":
         dataset = get_gsm8k_dataset(split="train")
-        method = PPOMethod(args.method)
+        method = RLOOMethod(args.method)
         results = method.run(model, tokenizer, dataset, args.output)
     elif method_name == "GRPO":
+        from src.methods.grpo import GRPOMethod
+
         dataset = get_gsm8k_dataset(split="train")
         method = GRPOMethod(args.method)
         results = method.run(model, tokenizer, dataset, args.output)

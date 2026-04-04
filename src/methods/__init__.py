@@ -1,6 +1,14 @@
 from .base import BaseMethod
 from .cot import CoTMethod
-from .ppo import PPOMethod
-from .grpo import GRPOMethod
+from .rloo import RLOOMethod
 
-__all__ = ["BaseMethod", "CoTMethod", "PPOMethod", "GRPOMethod"]
+
+def __getattr__(name):
+    if name == "GRPOMethod":
+        from .grpo import GRPOMethod
+
+        return GRPOMethod
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+__all__ = ["BaseMethod", "CoTMethod", "RLOOMethod", "GRPOMethod"]

@@ -92,7 +92,7 @@ def generate_analysis_report(results: Dict[str, Dict[str, Dict]]) -> str:
     lines.append("ANALYSIS REPORT")
     lines.append("=" * 80)
 
-    lines.append("\n## Method Comparison (CoT vs PPO vs GRPO)")
+    lines.append("\n## Method Comparison (CoT vs RLOO vs GRPO)")
     lines.append("-" * 40)
 
     method_accs = {}

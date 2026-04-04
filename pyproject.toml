@@ -5,10 +5,12 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "basedpyright>=1.39.0",
     "dotenv>=0.9.9",
     "huggingface-hub>=1.8.0",
     "ipykernel>=7.2.0",
     "torch>=2.11.0",
     "torchvision>=0.26.0",
-    "trl>=0.29.1",
+    "trl==1.0.0",
+    "wandb",
 ]
