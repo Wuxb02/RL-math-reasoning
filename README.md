@@ -190,7 +190,7 @@ GRPO-math/
 │   │   ├── evaluator.py
 │   │   └── metrics.py
 │   └── utils/               # 工具函数
-│       └── __init__.py
+│       └── __init__.py      # load_env(), apply_lora(), 可视化工具
 ├── scripts/
 │   ├── train.py             # 单个模型训练
 │   ├── evaluate.py          # 单个模型评估
@@ -254,8 +254,8 @@ GRPO-math/
 | 方法 | 类型 | 核心思想 | 显存占用 | 训练方式 |
 |------|------|----------|----------|----------|
 | **CoT** | 推理 | 提示词引导逐步推理 | 低 | 无需训练 |
-| **RLOO** | 训练 | REINFORCE 风格优化 + Leave-One-Out 基线 | 中 | 无需价值模型 |
-| **GRPO** | 训练 | 组内相对奖励归一化 | 中 | 无需价值模型 |
+| **RLOO** | 训练 | REINFORCE 风格优化 + Leave-One-Out 基线 | 低 (LoRA) | 无需价值模型 |
+| **GRPO** | 训练 | 组内相对奖励归一化 | 低 (LoRA) | 无需价值模型 |
 
 ### CoT（Chain-of-Thought）
 
@@ -304,7 +304,7 @@ $$\mathcal{L}_{\text{KL}} = \beta \cdot D_{\text{KL}}(\pi_\theta \| \pi_{\text{r
 |------|-----|------|
 | 优势估计 | 需要价值模型 + GAE | Leave-One-Out 基线 |
 | 模型数量 | 3个（策略+价值+参考） | 2个（策略+参考） |
-| 显存占用 | 高 | 中（~33% 减少） |
+| 显存占用 | 高 | 低 (LoRA) |
 | 采样效率 | 每步1个响应 | 每步G个响应 |
 | 适用场景 | 通用RL任务 | 有明确奖励信号的任务 |
 
@@ -343,17 +343,63 @@ $$D_{\text{KL}}(\pi_\theta \| \pi_{\text{ref}}) = \mathbb{E}_{o \sim \pi_\theta}
 |------|------|------|
 | 优势估计 | Leave-One-Out 基线 | 组内均值+标准差归一化 |
 | 模型数量 | 2个（策略+参考） | 2个（策略+参考） |
-| 显存占用 | 中 | 中 |
+| 显存占用 | 低 (LoRA) | 低 (LoRA) |
 | 采样效率 | 每步G个响应 | 每步G个响应 |
 | 适用场景 | 通用RL任务 | 有明确奖励信号的任务 |
 
 ## 模型规格
 
-| 模型 | 参数量 | 显存(FP16) | 上下文长度 |
-|------|--------|-----------|-----------|
-| Qwen3-0.6B | 0.6B | 1.5GB | 32K |
-| Qwen3-1.7B | 1.7B | 4GB | 32K |
-| Qwen3-4B | 4B | 9GB | 128K |
+| 模型 | 参数量 | 显存(FP16) | 上下文长度 | LoRA 训练显存 |
+|------|--------|-----------|-----------|--------------|
+| Qwen3-0.6B | 0.6B | 1.5GB | 32K | ~4GB |
+| Qwen3-1.7B | 1.7B | 4GB | 32K | ~8GB |
+| Qwen3-4B | 4B | 9GB | 128K | ~23GB |
+
+> **注意**：所有训练方法（RLOO/GRPO）统一使用 LoRA 微调（r=16, alpha=32），以保证不同规模模型之间的对比公平性。双卡 RTX 3090 (24GB×2) 可安全运行全部模型。
+
+## LoRA 配置
+
+本项目对所有 RL 训练方法（RLOO/GRPO）统一使用 LoRA 适配器，设计决策如下：
+
+### 为什么统一使用 LoRA？
+
+1. **硬件限制**：4B 模型全量微调需 ~74GB 显存，远超双卡 3090 的 48GB
+2. **实验公平性**：统一训练方式后，对比结果仅反映模型规模差异，而非训练方式差异
+3. **显存优化**：配合 `gradient_checkpointing` 和 `device_map="auto"`，三模型均可在双卡 3090 上运行
+
+### 配置参数
+
+LoRA 配置在 `configs/methods/grpo.yaml` 和 `configs/methods/rloo.yaml` 中定义：
+
+```yaml
+lora:
+  enabled: true          # 设为 false 可切换回全量微调（仅适用于 0.6B/1.7B）
+  r: 16                  # LoRA 秩
+  lora_alpha: 32         # 缩放系数（alpha = 2r）
+  lora_dropout: 0.05     # Dropout 率
+  target_modules:        # 目标层（覆盖所有注意力 + FFN 线性层）
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+```
+
+### 显存对比
+
+| 模型 | 全量微调 | LoRA (r=16) | 节省 |
+|------|----------|-------------|------|
+| 0.6B | ~13 GB | ~4 GB | 69% |
+| 1.7B | ~30 GB | ~8 GB | 73% |
+| 4B | ~74 GB | ~23 GB | 69% |
+
+### 技术实现
+
+- **`src/utils/__init__.py`** — `apply_lora()` 函数，GRPO/RLOO 共用
+- **`src/models/loader.py`** — `device_map="auto"` 自动多卡分配 + `gradient_checkpointing_enable()`
+- **`pyproject.toml`** — 依赖 `peft>=0.18.1`
 
 ## 奖励函数设计
 
