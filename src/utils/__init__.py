@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 import math
 
 from dotenv import load_dotenv
@@ -21,6 +21,58 @@ def load_env():
 
 
 load_env()
+
+
+def apply_lora(
+    model,
+    training_config: Dict[str, Any],
+    lora_config: Optional[Dict[str, Any]] = None,
+):
+    """
+    为模型应用 LoRA 适配器。
+
+    参数:
+        model: 待包装的策略模型（AutoModelForCausalLM）。
+        training_config: 训练配置字典，包含 lora 配置段。
+        lora_config: 可选的 LoRA 配置字典。若为 None，则从 training_config 中读取。
+
+    返回:
+        包装后的 PeftModel。若 lora.enabled 为 false，则返回原模型。
+
+    用法:
+        在 grpo.py / rloo.py 的 run() 方法开头调用:
+            model = apply_lora(model, self.training_config)
+    """
+    lora_cfg = lora_config or training_config.get("lora", {})
+
+    if not lora_cfg.get("enabled", True):
+        return model
+
+    from peft import LoraConfig, get_peft_model
+
+    peft_config = LoraConfig(
+        r=lora_cfg.get("r", 16),
+        lora_alpha=lora_cfg.get("lora_alpha", 32),
+        lora_dropout=lora_cfg.get("lora_dropout", 0.05),
+        target_modules=lora_cfg.get(
+            "target_modules",
+            [
+                "q_proj",
+                "k_proj",
+                "v_proj",
+                "o_proj",
+                "gate_proj",
+                "up_proj",
+                "down_proj",
+            ],
+        ),
+        task_type="CAUSAL_LM",
+    )
+
+    model = get_peft_model(model, peft_config)
+    model.print_trainable_parameters()
+
+    return model
 
 
 def generate_ascii_bar(value: float, max_width: int = 30) -> str:

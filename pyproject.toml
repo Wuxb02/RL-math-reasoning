@@ -9,8 +9,14 @@ dependencies = [
     "dotenv>=0.9.9",
     "huggingface-hub>=1.8.0",
     "ipykernel>=7.2.0",
+    "peft>=0.18.1",
     "torch>=2.11.0",
     "torchvision>=0.26.0",
     "trl==1.0.0",
     "wandb",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.9",
 ]

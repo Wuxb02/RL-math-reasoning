@@ -33,6 +33,20 @@ gradient_accumulation_steps: 4
   use_vllm: false
   vllm_gpu_memory_utilization: 0.3
 
+lora:
+  enabled: true
+  r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
 reward:
   xml_count_weight: 0.5
   soft_format_weight: 0.5

@@ -70,7 +70,7 @@ class ModelLoader:
         return "cpu"
 
     def load_model_and_tokenizer(
-        self, dtype: Optional[str] = None, device_map: Optional[str] = None
+        self, dtype: Optional[str] = None, device_map: Optional[str] = "auto"
     ) -> Tuple[AutoModelForCausalLM, AutoTokenizer]:
         """
         加载预训练模型和分词器。
@@ -83,8 +83,9 @@ class ModelLoader:
         Args:
             dtype: 数据类型，可选。默认使用配置文件中的设置。
                 可选值: "bfloat16", "float16", "float32"
-            device_map: 设备映射策略，可选。默认不使用 device_map，
-                手动将模型移动到检测到的设备。
+            device_map: 设备映射策略，可选。默认为 "auto"，
+                自动将模型分布到所有可用 GPU。设为 None 则不使用
+                device_map，手动将模型移动到检测到的设备。
 
         Returns:
             Tuple[AutoModelForCausalLM, AutoTokenizer]: 加载后的模型和分词器
@@ -118,6 +119,9 @@ class ModelLoader:
             device_map=device_map,
         )
 
+        # 启用梯度检查点以降低训练显存
+        model.gradient_checkpointing_enable()
+
         # 如果没有使用 device_map，手动将模型移动到检测到的设备
         if device_map is None:
             model = model.to(self.device)
@@ -126,6 +130,14 @@ class ModelLoader:
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         # 设置 pad_token（部分模型没有独立的 pad_token，使用 eos_token 代替）
         tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.pad_token_id = tokenizer.eos_token_id
+        # 设置 bos_token_id 与 eos_token_id 一致，避免运行时 config 更新警告
+        if tokenizer.bos_token_id is None:
+            tokenizer.bos_token_id = tokenizer.eos_token_id
+        # 同步更新模型的 generation_config，防止 Trainer 运行时覆盖
+        if hasattr(model, "generation_config"):
+            model.generation_config.pad_token_id = tokenizer.pad_token_id
+            model.generation_config.bos_token_id = tokenizer.bos_token_id
         # 设置左侧填充（生成任务推荐设置，确保生成内容在序列右侧）
         tokenizer.padding_side = "left"
 

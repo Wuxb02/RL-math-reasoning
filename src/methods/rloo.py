@@ -224,7 +224,12 @@ class RLOOMethod(BaseMethod):
         返回:
             Dict[str, Any]: 训练状态与输出目录。
         """
-        # 权重顺序必须与 reward_funcs 列表严���一致。
+        # 权重顺序必须与 reward_funcs 列表严格一致。
+        # 应用 LoRA 适配器（显存优化 + 实验公平性）
+        from ..utils import apply_lora
+
+        model = apply_lora(model, self.training_config)
+
         reward_weights = [
             self.reward_config.get("xml_format_weight", 0.5),
             self.reward_config.get("soft_format_weight", 0.5),

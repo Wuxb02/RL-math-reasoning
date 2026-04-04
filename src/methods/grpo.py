@@ -60,6 +60,11 @@ class GRPOMethod(BaseMethod):
             Dict[str, Any]: 训练状态和输出目录。
         """
         reward_config = self.config.get("reward", {})
+        # 应用 LoRA 适配器（显存优化 + 实验公平性）
+        from ..utils import apply_lora
+
+        model = apply_lora(model, self.training_config)
+
         # 权重顺序必须与 reward_funcs 的函数顺序保持一致。
         reward_weights = [
             reward_config.get("xml_count_weight", 0.5),

@@ -36,6 +36,20 @@ training:
   save_steps: 100
   output_dir: "outputs"
 
+lora:
+  enabled: true
+  r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
 reward:
   xml_format_weight: 0.5
   soft_format_weight: 0.5
