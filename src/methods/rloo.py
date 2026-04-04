@@ -1,3 +1,19 @@
+"""
+RLOO 训练方法实现。
+
+本模块实现 TRL 1.0.0 推荐的 RLOO（Reinforce Leave-One-Out）训练流程，
+用于替代旧版 PPOTrainer。核心特点：
+
+1. 无需价值模型（value model），只保留策略模型与参考模型，显存占用更低。
+2. 对每个问题一次采样多个 completion（由 num_generations 决定），
+   使用 Leave-One-Out 基线估计优势，降低奖励方差。
+3. 通过 beta 控制 KL 惩罚强度，约束策略不要偏离参考模型过快。
+
+输出格式约束统一为：
+<reasoning>...</reasoning>
+<answer>...</answer>
+"""
+
 import torch
 import logging
 from typing import Dict, Any, List
@@ -32,10 +48,22 @@ def _make_rloo_reward_funcs():
 
     我们现有的奖励函数已经接受 (completions, ...) 格式，
     这里用闭包包装以兼容 RLOO 的调用方式。
+
+    返回顺序与 reward_weights 一一对应：
+    [xmlcount, soft_format, strict_format, int_answer, reasoning_quality, correctness]
     """
 
     def correctness_reward(completions, answer, **kwargs):
-        """正确性奖励 — 适配 RLOO 签名。"""
+        """
+        正确性奖励（主奖励项）。
+
+        参数:
+            completions: 模型采样输出，conversational 结构。
+            answer: 数据集标准答案列表。
+
+        返回:
+            List[float]: 正确给 2.0，错误给 -0.5，空答案给 -1.0。
+        """
         responses = [completion[0]["content"] for completion in completions]
         extracted_responses = [extract_xml_answer(r) for r in responses]
 
@@ -54,7 +82,12 @@ def _make_rloo_reward_funcs():
         return rewards
 
     def int_reward(completions, answer, **kwargs):
-        """数字格式奖励 — 适配 RLOO 签名。"""
+        """
+        数字格式奖励（辅助奖励项）。
+
+        该奖励不关心答案是否正确，只检查 <answer> 内容能否解析为数字，
+        用于鼓励模型输出可判分的数值格式。
+        """
         responses = [completion[0]["content"] for completion in completions]
         extracted_responses = [extract_xml_answer(r) for r in responses]
 
@@ -76,7 +109,7 @@ def _make_rloo_reward_funcs():
         return rewards
 
     def strict_format_reward(completions, **kwargs):
-        """严格格式奖励 — 适配 RLOO 签名。"""
+        """严格格式奖励：要求 XML 标签与换行完全匹配模板。"""
         import re
 
         pattern = r"^<reasoning>\n.*?\n</reasoning>\n<answer>\n.*?\n</answer>\n$"
@@ -85,7 +118,7 @@ def _make_rloo_reward_funcs():
         return [0.5 if match else 0.0 for match in matches]
 
     def soft_format_reward(completions, **kwargs):
-        """宽松格式奖励 — 适配 RLOO 签名。"""
+        """宽松格式奖励：只要求出现 reasoning/answer 标签结构。"""
         import re
 
         pattern = r"<reasoning>.*?</reasoning>\s*<answer>.*?</answer>"
@@ -94,14 +127,18 @@ def _make_rloo_reward_funcs():
         return [0.5 if match else 0.0 for match in matches]
 
     def xmlcount_reward(completions, **kwargs):
-        """XML 标签计数奖励 — 适配 RLOO 签名。"""
+        """XML 标签计数奖励：按标签完整度与尾部冗余长度打分。"""
         from ..rewards.math_rewards import count_xml
 
         contents = [completion[0]["content"] for completion in completions]
         return [count_xml(c) for c in contents]
 
     def reasoning_quality_reward(completions, **kwargs):
-        """推理质量奖励 — 适配 RLOO 签名。"""
+        """
+        推理质量奖励：鼓励清晰、分步、包含计算痕迹的 reasoning。
+
+        评分维度包括：步骤数量、是否包含算式、长度是否适中等。
+        """
         import re
 
         responses = [completion[0]["content"] for completion in completions]
@@ -156,14 +193,38 @@ class RLOOMethod(BaseMethod):
 
     TRL 1.0.0 移除了 PPOConfig/PPOTrainer，RLOO 作为官方推荐替代方案。
     RLOO 在 RLHF 场景下性能优于 PPO，且无需价值模型，显存更低。
+
+    设计说明：
+    - 本实现沿用项目统一的 6 个奖励函数，并通过 YAML 配置权重。
+    - 训练阶段只做策略优化；评估阶段统一用确定性解码统计准确率。
     """
 
     def __init__(self, config_path: str = "configs/methods/rloo.yaml"):
+        """读取方法配置并缓存训练/奖励超参数。"""
         super().__init__(config_path)
         self.training_config = self.config["training"]
         self.reward_config = self.config.get("reward", {})
 
-    def run(self, model, tokenizer, dataset, output_dir: str) -> Dict[str, Any]:
+    def run(
+        self,
+        model: AutoModelForCausalLM,
+        tokenizer: Any,
+        dataset: Any,
+        output_dir: str,
+    ) -> Dict[str, Any]:
+        """
+        执行 RLOO 训练并保存 checkpoint。
+
+        参数:
+            model: 待优化的策略模型。
+            tokenizer: 与模型匹配的分词器。
+            dataset: 训练集（每条样本含 prompt/answer/question 字段）。
+            output_dir: 模型输出目录。
+
+        返回:
+            Dict[str, Any]: 训练状态与输出目录。
+        """
+        # 权重顺序必须与 reward_funcs 列表严���一致。
         reward_weights = [
             self.reward_config.get("xml_format_weight", 0.5),
             self.reward_config.get("soft_format_weight", 0.5),
@@ -192,7 +253,9 @@ class RLOOMethod(BaseMethod):
             gradient_accumulation_steps=self.training_config.get(
                 "gradient_accumulation_steps", 4
             ),
+            # 每个 prompt 采样 G 个 completion（G 越大，组内基线越稳定，但显存/算力开销越高）。
             num_generations=self.training_config.get("num_generations", 4),
+            # 单次 batch 上执行的 RLOO 更新轮数。
             num_iterations=self.training_config.get("rloo_iterations", 1),
             max_completion_length=self.training_config.get(
                 "max_completion_length", 200
@@ -200,6 +263,7 @@ class RLOOMethod(BaseMethod):
             num_train_epochs=self.training_config.get("num_train_epochs", 1),
             save_steps=self.training_config.get("save_steps", 100),
             max_grad_norm=self.training_config.get("max_grad_norm", 0.1),
+            # KL 惩罚系数：约束新策略与参考策略偏移，避免奖励投机。
             beta=self.training_config.get("beta", 0.05),
             reward_weights=reward_weights,
             report_to="wandb" if wandb.run else "none",
@@ -220,7 +284,19 @@ class RLOOMethod(BaseMethod):
 
         return {"status": "completed", "output_dir": output_dir}
 
-    def evaluate(self, model, tokenizer, test_dataset) -> Dict[str, float]:
+    def evaluate(
+        self,
+        model: AutoModelForCausalLM,
+        tokenizer: Any,
+        test_dataset: Any,
+    ) -> Dict[str, float]:
+        """
+        在测试集上评估 RLOO 模型。
+
+        指标说明：
+        - accuracy: 数值等价准确率（支持 0.5、1/2、50% 等价）。
+        - format_compliance: 是否包含 XML 结构标签的比例。
+        """
         correct = 0
         total = 0
         format_correct = 0
@@ -232,6 +308,7 @@ class RLOOMethod(BaseMethod):
             messages = [
                 {
                     "role": "system",
+                    # 统一强制 XML 输出格式，便于奖励函数与评估提取答案。
                     "content": "Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n",
                 },
                 {"role": "user", "content": question},
@@ -245,7 +322,11 @@ class RLOOMethod(BaseMethod):
 
             with torch.no_grad():
                 generated_ids = model.generate(
-                    **model_inputs, max_new_tokens=512, temperature=0.0, do_sample=False
+                    # 评估阶段使用贪心解码，减少采样噪声。
+                    **model_inputs,
+                    max_new_tokens=512,
+                    temperature=0.0,
+                    do_sample=False,
                 )
 
             generated_ids = [

@@ -1,3 +1,14 @@
+"""GRPO 训练方法实现。
+
+本模块实现 Group Relative Policy Optimization（GRPO）训练流程，
+核心思想是：对同一问题采样多个回答，基于组内奖励做相对归一化，
+从而得到优势信号（advantage）而无需价值模型。
+
+本项目统一要求模型输出 XML 结构：
+<reasoning>...</reasoning>
+<answer>...</answer>
+"""
+
 import torch
 from typing import Dict, Any
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -18,12 +29,38 @@ from ..rewards.math_rewards import (
 
 
 class GRPOMethod(BaseMethod):
+    """GRPO 方法封装。
+
+    设计决策：
+    - 奖励由 6 个子函数线性加权组成，权重来自 YAML，便于实验对比。
+    - 训练与评估分离：训练期关注策略优化，评估期固定贪心解码统计指标。
+    """
+
     def __init__(self, config_path: str = "configs/methods/grpo.yaml"):
+        """加载 GRPO 配置并缓存训练超参数。"""
         super().__init__(config_path)
         self.training_config = self.config["training"]
 
-    def run(self, model, tokenizer, dataset, output_dir: str) -> Dict[str, Any]:
+    def run(
+        self,
+        model: AutoModelForCausalLM,
+        tokenizer: Any,
+        dataset: Any,
+        output_dir: str,
+    ) -> Dict[str, Any]:
+        """执行 GRPO 训练并保存模型。
+
+        参数:
+            model: 待优化的策略模型。
+            tokenizer: 与模型匹配的 tokenizer。
+            dataset: 训练数据集，样本至少包含 prompt/answer/question。
+            output_dir: 模型保存目录。
+
+        返回:
+            Dict[str, Any]: 训练状态和输出目录。
+        """
         reward_config = self.config.get("reward", {})
+        # 权重顺序必须与 reward_funcs 的函数顺序保持一致。
         reward_weights = [
             reward_config.get("xml_count_weight", 0.5),
             reward_config.get("soft_format_weight", 0.5),
@@ -50,6 +87,8 @@ class GRPOMethod(BaseMethod):
             gradient_accumulation_steps=self.training_config[
                 "gradient_accumulation_steps"
             ],
+            # 每个问题采样 G 个候选回答。
+            # GRPO 会基于组内奖励均值/方差做相对归一化来构造优势信号。
             num_generations=self.training_config["num_generations"],
             max_completion_length=self.training_config["max_completion_length"],
             num_train_epochs=self.training_config["num_train_epochs"],
@@ -84,7 +123,18 @@ class GRPOMethod(BaseMethod):
 
         return {"status": "completed", "output_dir": output_dir}
 
-    def evaluate(self, model, tokenizer, test_dataset) -> Dict[str, float]:
+    def evaluate(
+        self,
+        model: AutoModelForCausalLM,
+        tokenizer: Any,
+        test_dataset: Any,
+    ) -> Dict[str, float]:
+        """在测试集上评估训练后模型。
+
+        指标说明：
+        - accuracy：答案数值等价准确率。
+        - format_compliance：是否满足 XML 标签结构的比例。
+        """
         correct = 0
         total = 0
         format_correct = 0
@@ -96,6 +146,7 @@ class GRPOMethod(BaseMethod):
             messages = [
                 {
                     "role": "system",
+                    # 强制使用统一 XML 模板，保证答案可被稳定提取和打分。
                     "content": "Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n",
                 },
                 {"role": "user", "content": question},
@@ -109,7 +160,11 @@ class GRPOMethod(BaseMethod):
 
             with torch.no_grad():
                 generated_ids = model.generate(
-                    **model_inputs, max_new_tokens=512, temperature=0.0, do_sample=False
+                    # 评估使用确定性解码，降低随机采样带来的方差。
+                    **model_inputs,
+                    max_new_tokens=512,
+                    temperature=0.0,
+                    do_sample=False,
                 )
 
             generated_ids = [
