@@ -20,7 +20,7 @@ import torch
 from typing import Dict, Any, List
 from tqdm import tqdm
 from .base import BaseMethod
-from ..rewards.math_rewards import extract_xml_answer
+from ..rewards.math_rewards import extract_xml_answer, numeric_equivalence
 
 
 class CoTMethod(BaseMethod):
@@ -104,7 +104,8 @@ class CoTMethod(BaseMethod):
             extracted_answer = extract_xml_answer(response)
 
             # 判断是否正确和格式是否合规
-            is_correct = extracted_answer == expected_answer
+            # 使用数值等价判断，与 RLOO/GRPO 保持一致
+            is_correct = numeric_equivalence(extracted_answer, expected_answer)
             has_format = "<reasoning>" in response and "<answer>" in response
 
             if is_correct:

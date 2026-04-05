@@ -82,7 +82,9 @@ class GRPOMethod(BaseMethod):
             adam_beta1=self.training_config["adam_beta1"],
             adam_beta2=self.training_config["adam_beta2"],
             weight_decay=self.training_config["weight_decay"],
-            warmup_steps=self.training_config["warmup_steps"],
+            warmup_steps=int(self.training_config.get("warmup_steps", 0.1) * 100)
+            if self.training_config.get("warmup_steps", 0.1) < 1
+            else self.training_config.get("warmup_steps", 0.1),
             lr_scheduler_type=self.training_config["lr_scheduler_type"],
             logging_steps=self.training_config["logging_steps"],
             bf16=self.training_config["bf16"],

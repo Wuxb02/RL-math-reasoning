@@ -242,7 +242,7 @@ def strict_format_reward_func(completions, **kwargs) -> List[float]:
     Returns:
         List[float]: 完全匹配 +0.5，否则 +0.0
     """
-    pattern = r"^<reasoning>\n.*?\n</reasoning>\n<answer>\n.*?\n</answer>\n$"
+    pattern = r"^<reasoning>\r?\n.*?\r?\n</reasoning>\r?\n<answer>\r?\n.*?\r?\n</answer>\r?\n?$"
     responses = [completion[0]["content"] for completion in completions]
     matches = [re.match(pattern, r, re.DOTALL) for r in responses]
     return [0.5 if match else 0.0 for match in matches]
@@ -292,34 +292,43 @@ def count_xml(text) -> float:
     count = 0.0
 
     # 检查 <reasoning> 开始标签
-    if text.count("<reasoning>\n") == 1:
+    if "<reasoning>\n" in text or "<reasoning>\r\n" in text:
         count += 0.125
-    elif text.count("<reasoning>") >= 1:
+    elif "<reasoning>" in text:
         count += 0.0625  # 有标签但格式不完全正确
 
     # 检查 </reasoning> 结束标签
-    if text.count("\n</reasoning>\n") == 1:
+    if (
+        "\n</reasoning>\n" in text
+        or "\r\n</reasoning>\r\n" in text
+        or "\n</reasoning>\r\n" in text
+        or "\r\n</reasoning>\n" in text
+    ):
         count += 0.125
-    elif text.count("</reasoning>") >= 1:
+    elif "</reasoning>" in text:
         count += 0.0625
 
     # 检查 <answer> 开始标签
-    if text.count("\n<answer>\n") == 1:
+    if (
+        "\n<answer>\n" in text
+        or "\r\n<answer>\r\n" in text
+        or "\n<answer>\r\n" in text
+        or "\r\n<answer>\n" in text
+    ):
         count += 0.125
-    elif text.count("<answer>") >= 1:
+    elif "<answer>" in text:
         count += 0.0625
 
     # 检查 </answer> 结束标签并扣分
-    if text.count("\n</answer>\n") == 1:
+    if "\n</answer>\n" in text:
         count += 0.125
-        # 扣分：</answer>\n 之后的内容
         tail = text.split("\n</answer>\n")[-1]
         count -= len(tail) * 0.001
-    elif text.count("\n</answer>") == 1:
+    elif "\n</answer>" in text:
         count += 0.125
         tail = text.split("\n</answer>")[-1]
         count -= len(tail) * 0.001
-    elif text.count("</answer>") >= 1:
+    elif "</answer>" in text:
         count += 0.0625
         tail = text.split("</answer>")[-1]
         count -= len(tail) * 0.001
@@ -367,7 +376,7 @@ def reasoning_quality_reward_func(completions, **kwargs) -> List[float]:
         **kwargs: 其他额外参数
 
     Returns:
-        List[float]: 每个样本的推理质量评分，范围 [-0.15, +0.3]
+        List[float]: 每个样本的推理质量评分，范围 [-0.15, +0.4]
     """
     responses = [completion[0]["content"] for completion in completions]
     rewards = []
