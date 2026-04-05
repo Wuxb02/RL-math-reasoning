@@ -260,7 +260,8 @@ GRPO-math/
 ### CoT（Chain-of-Thought）
 
 - 无需训练，通过精心设计的提示词引导模型推理
-- 使用 XML 格式的思维链模板
+- 使用 XML 格式的思维链模板（zero-shot，不含 few-shot 示例）
+- 评估时使用数值等价判断（`numeric_equivalence`），与 RLOO/GRPO 保持一致
 - 适合作为基线对比
 
 **损失函数**：
@@ -414,9 +415,9 @@ lora:
 | 严格格式奖励 | 0 ~ 0.5 | XML格式规范 | 高 |
 | 宽松格式奖励 | 0 ~ 0.5 | 基本格式规范 | 中 |
 | XML标签计数 | -0.5 ~ 0.5 | 标签完整性 | 中 |
-| 推理质量奖励 | -0.15 ~ 0.3 | 推理过程质量 | 低 |
+| 推理质量奖励 | -0.15 ~ 0.4 | 推理过程质量 | 低 |
 
-**总奖励范围**：-1.75 ~ 4.3（各奖励函数加权求和）
+**总奖励范围**：-1.75 ~ 4.4（各奖励函数加权求和）
 
 ---
 
@@ -493,7 +494,7 @@ else:
 
 **正则表达式**：
 ```
-^<reasoning>\n.*?\n</reasoning>\n<answer>\n.*?\n</answer>\n$
+^<reasoning>\r?\n.*?\r?\n</reasoning>\r?\n<answer>\r?\n.*?\r?\n</answer>\r?\n?$
 ```
 
 **要求格式**：
@@ -504,12 +505,11 @@ else:
 <answer>
 [答案内容，必须有换行]
 </answer>
-
 ```
 
 **注意事项**：
-- 必须以 `<reasoning>\n` 开头
-- 必须以 `\n</answer>\n` 结尾（含换行）
+- 以 `<reasoning>` 开头（支持 LF `\n` 和 CRLF `\r\n` 换行）
+- 以 `</answer>` 结尾（尾部换行可选）
 - 标签之间必须有换行符
 
 ---
@@ -544,10 +544,14 @@ else:
 
 | 检查内容 | 正确格式 | 奖励 | 部分正确 | 奖励 |
 |----------|----------|------|----------|------|
-| `<reasoning>` | `<reasoning>\n` | +0.125 | `<reasoning>` | +0.0625 |
-| `</reasoning>` | `\n</reasoning>\n` | +0.125 | `</reasoning>` | +0.0625 |
-| `<answer>` | `\n<answer>\n` | +0.125 | `<answer>` | +0.0625 |
-| `</answer>` | `\n</answer>\n` | +0.125 | `</answer>` | +0.0625 |
+| `<reasoning>` | `<reasoning>\n` 或 `<reasoning>\r\n` | +0.125 | `<reasoning>` | +0.0625 |
+| `</reasoning>` | `\n</reasoning>\n` 等 | +0.125 | `</reasoning>` | +0.0625 |
+| `<answer>` | `\n<answer>\n` 等 | +0.125 | `<answer>` | +0.0625 |
+| `</answer>` | `\n</answer>\n` 等 | +0.125 | `</answer>` | +0.0625 |
+
+**实现改进**：
+- 使用 `in` 判断替代 `count == 1`，修复标签不存在时 `split` 返回原文本导致意外扣分的边界问题
+- 支持 LF（`\n`）和 CRLF（`\r\n`）混合换行风格
 
 **惩罚机制**：
 - `</answer>` 之后每多一个字符扣 0.001 分
@@ -563,7 +567,7 @@ reward = max(reward, -0.5)  # 限制最低分
 
 ### 6. 推理质量奖励 (reasoning_quality_reward_func)
 
-**分值**：`-0.15` ~ `0.3`
+**分值**：`-0.15` ~ `0.4`
 
 **评估维度**：
 
