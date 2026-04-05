@@ -231,10 +231,10 @@ class RLOOMethod(BaseMethod):
         model = apply_lora(model, self.training_config)
 
         reward_weights = [
-            self.reward_config.get("xml_format_weight", 0.5),
+            self.reward_config.get("xml_count_weight", 0.5),
             self.reward_config.get("soft_format_weight", 0.5),
             self.reward_config.get("strict_format_weight", 0.5),
-            self.reward_config.get("integer_answer_weight", 0.5),
+            self.reward_config.get("integer_weight", 0.5),
             self.reward_config.get("reasoning_quality_weight", 0.3),
             self.reward_config.get("correctness_weight", 2.0),
         ]
@@ -271,6 +271,10 @@ class RLOOMethod(BaseMethod):
             # KL 惩罚系数：约束新策略与参考策略偏移，避免奖励投机。
             beta=self.training_config.get("beta", 0.05),
             reward_weights=reward_weights,
+            use_vllm=self.training_config.get("use_vllm", False),
+            vllm_gpu_memory_utilization=self.training_config.get(
+                "vllm_gpu_memory_utilization", 0.3
+            ),
             report_to="wandb" if wandb.run else "none",
         )
 
