@@ -51,8 +51,14 @@ jupyter notebook download_models.ipynb
 
 ```bash
 # 使用 uv 运行（推荐，跨平台）
+# 0.6B / 1.7B 单卡训练 + 4B 自动切换双卡
 uv run python scripts/run_training.py
 uv run python scripts/run_evaluation.py
+
+# 4B 模型手动双卡训练（GPU0 训练 + GPU1 vLLM 推理）
+./scripts/train_distributed.sh \
+    --model configs/models/qwen3-4b.yaml \
+    --method configs/methods/grpo.yaml
 
 # 或使用完整 Python 路径（Windows）
 "D:\anaconda\python.exe" "F:\RL-math-reasoning\scripts\run_training.py"
@@ -111,16 +117,18 @@ uv run python scripts/train.py --model configs/models/qwen3-0.6b.yaml --method c
 ### 2. 常用命令速查
 
 ```bash
-# 训练命令
+# 训练命令（0.6B / 1.7B 单卡）
 uv run python scripts/train.py --model configs/models/qwen3-0.6b.yaml --method configs/methods/grpo.yaml --wandb
 uv run python scripts/train.py --model configs/models/qwen3-1.7b.yaml --method configs/methods/rloo.yaml --wandb
-uv run python scripts/train.py --model configs/models/qwen3-4b.yaml --method configs/methods/cot.yaml --wandb
+
+# 训练命令（4B 双卡，Linux/macOS）
+./scripts/train_distributed.sh --model configs/models/qwen3-4b.yaml --method configs/methods/grpo.yaml --wandb
 
 # 评估命令
 uv run python scripts/evaluate.py --model configs/models/qwen3-0.6b.yaml --method CoT
-uv run python scripts/evaluate.py --model configs/models/qwen3-0.6b.yaml --checkpoint outputs/checkpoints\Qwen3-0.6B-GRPO --method GRPO
+uv run python scripts/evaluate.py --model configs/models/qwen3-0.6b.yaml --checkpoint outputs/checkpoints/Qwen3-0.6B-GRPO --method GRPO
 
-# 批量训练
+# 批量训练（自动检测 4B 切换双卡）
 uv run python scripts/run_training.py
 
 # 批量评估
@@ -193,8 +201,9 @@ GRPO-math/
 │       └── __init__.py      # load_env(), apply_lora(), 可视化工具
 ├── scripts/
 │   ├── train.py             # 单个模型训练
+│   ├── train_distributed.sh # 双卡训练（GPU0 训练 + GPU1 vLLM）
 │   ├── evaluate.py          # 单个模型评估
-│   ├── run_training.py      # 批量训练（所有组合）
+│   ├── run_training.py      # 批量训练（自动检测 4B 切换双卡）
 │   ├── run_evaluation.py    # 批量评估 + 自动对比
 │   └── visualize.py         # 结果可视化
 ├── resources/               # 模型和数据（gitignored）
@@ -221,21 +230,22 @@ GRPO-math/
 │  │                       │ → resources/gsm8k/                   │
 │  └───────────────────────┘                                      │
 └─────────────────────────────────────────────────────────────────┘
-                              ↓
+                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │                        训练阶段                                  │
 │  ┌───────────────────────┐    ┌─────────────────────────────┐   │
-│  │   run_training.py     │ OR │   train.py (单个)           │   │
-│  │   (批量 3×3=9 组合)   │    │                             │   │
+│  │   run_training.py     │ OR │   train.py (单个, 0.6B/1.7B)│   │
+│  │   (自动检测 4B 双卡)  │    │   train_distributed.sh (4B) │   │
 │  └───────────────────────┘    └─────────────────────────────┘   │
 │           ↓                                                     │
 │  outputs/checkpoints/                                           │
-│    ├── Qwen3-0.6B-RLOO/                                          │
+│    ├── Qwen3-0.6B-RLOO/                                         │
 │    ├── Qwen3-0.6B-GRPO/                                         │
-│    ├── Qwen3-1.7B-RLOO/                                          │
+│    ├── Qwen3-1.7B-RLOO/                                         │
+│    ├── Qwen3-4B-RLOO/  (双卡: GPU0 训练 + GPU1 vLLM)           │
 │    └── ...                                                      │
 └─────────────────────────────────────────────────────────────────┘
-                              ↓
+                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │                        评估阶段                                  │
 │  ┌───────────────────────┐    ┌─────────────────────────────┐   │
@@ -350,13 +360,51 @@ $$D_{\text{KL}}(\pi_\theta \| \pi_{\text{ref}}) = \mathbb{E}_{o \sim \pi_\theta}
 
 ## 模型规格
 
-| 模型 | 参数量 | 显存(FP16) | 上下文长度 | LoRA 训练显存 |
-|------|--------|-----------|-----------|--------------|
-| Qwen3-0.6B | 0.6B | 1.5GB | 32K | ~4GB |
-| Qwen3-1.7B | 1.7B | 4GB | 32K | ~8GB |
-| Qwen3-4B | 4B | 9GB | 128K | ~23GB |
+| 模型 | 参数量 | 显存(FP16) | 上下文长度 | 单卡训练显存 | 双卡训练显存 (GPU0/GPU1) |
+|------|--------|-----------|-----------|-------------|------------------------|
+| Qwen3-0.6B | 0.6B | 1.5GB | 32K | ~6GB | ~4GB / ~3GB |
+| Qwen3-1.7B | 1.7B | 4GB | 32K | ~12GB | ~10GB / ~6GB |
+| Qwen3-4B | 4B | 9GB | 128K | ~23GB | ~18GB / ~14GB |
 
-> **注意**：所有训练方法（RLOO/GRPO）统一使用 LoRA 微调（r=16, alpha=32），以保证不同规模模型之间的对比公平性。双卡 RTX 3090 (24GB×2) 可安全运行全部模型。
+> **注意**：所有训练方法（RLOO/GRPO）统一使用 LoRA 微调（r=16, alpha=32），以保证不同规模模型之间的对比公平性。双卡 RTX 3090 (24GB×2) 可安全运行全部模型。0.6B/1.7B 可单卡运行，4B 建议使用双卡模式。
+
+## 双卡训练（2x RTX 3090）
+
+对于 Qwen3-4B 模型，推荐使用双卡分布式训练以避免单卡显存不足：
+
+### GPU 分配
+
+| GPU | 角色 | 内容 |
+|-----|------|------|
+| **GPU 0** | 训练 | 策略模型 + 参考模型 + LoRA + 优化器 |
+| **GPU 1** | 推理 | vLLM 服务器（生成候选回答） |
+
+### 使用方式
+
+```bash
+# 单个 4B 训练
+./scripts/train_distributed.sh \
+    --model configs/models/qwen3-4b.yaml \
+    --method configs/methods/grpo.yaml \
+    --wandb
+
+# 批量运行（自动检测 4B 并切换双卡）
+uv run python scripts/run_training.py
+```
+
+### 优化配置
+
+方法配置已针对双卡 3090 优化：
+
+| 参数 | 原值 | 优化值 | 说明 |
+|------|------|--------|------|
+| `num_generations` | 4 | 2 | 减半生成开销 |
+| `max_completion_length` | 200 | 128 | 覆盖 95%+ GSM8K 样本 |
+| `gradient_accumulation_steps` | 4 | 2 | 减少同步开销 |
+| `vllm_mode` | colocate | server | 隔离 vLLM 到独立 GPU |
+| `save_steps` | 100 | 200 | 减少 checkpoint I/O |
+
+另外启用了 **Flash Attention 2**（RTX 3090 支持），额外提供 1.2-1.4x 加速。
 
 ## LoRA 配置
 
@@ -366,7 +414,7 @@ $$D_{\text{KL}}(\pi_\theta \| \pi_{\text{ref}}) = \mathbb{E}_{o \sim \pi_\theta}
 
 1. **硬件限制**：4B 模型全量微调需 ~74GB 显存，远超双卡 3090 的 48GB
 2. **实验公平性**：统一训练方式后，对比结果仅反映模型规模差异，而非训练方式差异
-3. **显存优化**：配合 `gradient_checkpointing` 和 `device_map="auto"`，三模型均可在双卡 3090 上运行
+3. **显存优化**：配合 `gradient_checkpointing`、`Flash Attention 2` 和 `device_map="auto"`，三模型均可在双卡 3090 上运行
 
 ### 配置参数
 

@@ -117,6 +117,7 @@ class ModelLoader:
             model_name,
             torch_dtype=dtype_map.get(dtype, torch.bfloat16),
             device_map=device_map,
+            attn_implementation="flash_attention_2",
         )
 
         # 启用梯度检查点以降低训练显存

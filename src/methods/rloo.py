@@ -272,6 +272,7 @@ class RLOOMethod(BaseMethod):
             beta=self.training_config.get("beta", 0.05),
             reward_weights=reward_weights,
             use_vllm=self.training_config.get("use_vllm", False),
+            vllm_mode=self.training_config.get("vllm_mode", "colocate"),
             vllm_gpu_memory_utilization=self.training_config.get(
                 "vllm_gpu_memory_utilization", 0.3
             ),

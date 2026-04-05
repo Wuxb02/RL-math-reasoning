@@ -105,6 +105,7 @@ class GRPOMethod(BaseMethod):
             max_grad_norm=self.training_config["max_grad_norm"],
             log_on_each_node=False,
             use_vllm=self.training_config.get("use_vllm", False),
+            vllm_mode=self.training_config.get("vllm_mode", "colocate"),
             vllm_gpu_memory_utilization=self.training_config.get(
                 "vllm_gpu_memory_utilization", 0.3
             ),

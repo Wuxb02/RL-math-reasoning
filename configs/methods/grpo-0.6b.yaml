@@ -1,7 +1,7 @@
 method:
   name: "GRPO"
   type: "training"
-  description: "Group Relative Policy Optimization"
+  description: "Group Relative Policy Optimization — Optimized for Qwen3-0.6B (single GPU)"
 
 training:
   learning_rate: 5.0e-6
@@ -12,15 +12,15 @@ training:
   lr_scheduler_type: "cosine"
   logging_steps: 1
   bf16: true
-  
-# GRPO specific
-num_generations: 2
-per_device_train_batch_size: 2
-gradient_accumulation_steps: 2
+
+# GRPO specific — increased for 0.6B single-GPU throughput
+num_generations: 8
+per_device_train_batch_size: 16
+gradient_accumulation_steps: 1
 
 # KL penalty
 beta: 0.05
-  
+
 # Generation
 max_completion_length: 128
 
@@ -32,12 +32,10 @@ max_grad_norm: 0.1
 save_steps: 200
 output_dir: "outputs"
 
-# vLLM acceleration (server mode: GPU1 for inference)
+# vLLM acceleration — colocate mode for single GPU (0.6B is small enough)
 use_vllm: true
-vllm_mode: "server"
-vllm_gpu_memory_utilization: 0.9
-vllm_server_host: "localhost"
-vllm_server_port: 8000
+vllm_mode: "colocate"
+vllm_gpu_memory_utilization: 0.5
 
 lora:
   enabled: true

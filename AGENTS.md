@@ -36,9 +36,16 @@ cp .env.example .env
 
 ### Training
 ```bash
-# Single training run
+# Single training run (single GPU, colocate vLLM)
 python scripts/train.py \
     --model configs/models/qwen3-0.6b.yaml \
+    --method configs/methods/grpo.yaml \
+    --wandb
+
+# Distributed training (2 GPUs: GPU0 training + GPU1 vLLM server)
+# Recommended for Qwen3-4B on 2x RTX 3090 (24GB × 2)
+./scripts/train_distributed.sh \
+    --model configs/models/qwen3-4b.yaml \
     --method configs/methods/grpo.yaml \
     --wandb
 
@@ -244,3 +251,30 @@ def correctness_reward_func(prompts, completions, answer, **kwargs) -> List[floa
 
 Core ML: `torch`, `transformers`, `trl`, `peft`, `accelerate`, `datasets`  
 Utilities: `wandb`, `pyyaml`, `tqdm`, `python-dotenv`, `huggingface-hub`, `modelscope`
+
+---
+
+## Performance Optimization
+
+### Dual-GPU Training (2x RTX 3090)
+
+For training Qwen3-4B on two 24GB GPUs, use the distributed script:
+
+```bash
+./scripts/train_distributed.sh \
+    --model configs/models/qwen3-4b.yaml \
+    --method configs/methods/grpo.yaml
+```
+
+GPU allocation:
+- **GPU 0**: Training (policy model + reference model + LoRA + optimizer)
+- **GPU 1**: vLLM inference server (generation)
+
+### Optimized Hyperparameters
+
+The method configs have been tuned for 2x 3090:
+- `num_generations: 2` (was 4) — halves generation overhead
+- `max_completion_length: 128` (was 200) — covers 95%+ of GSM8K samples
+- `gradient_accumulation_steps: 2` (was 4) — reduces sync overhead
+- `vllm_mode: "server"` — isolates vLLM to dedicated GPU
+- Flash Attention 2 enabled in model loader (RTX 3090 supported)
