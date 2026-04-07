@@ -222,29 +222,20 @@ def int_reward_func(completions, answer, **kwargs) -> List[float]:
 
 def strict_format_reward_func(completions, **kwargs) -> List[float]:
     """
-    严格格式奖励 — 要求完全符合 XML 格式规范（权重 0.5）。
+    严格格式奖励 — 要求包含 XML 标签结构（权重 0.5）。
 
-    期望格式（必须精确匹配）:
-        <reasoning>
-        [推理内容，必须有换行]
-        </reasoning>
-        <answer>
-        [答案内容，必须有换行]
-        </answer>
-
-    使用 re.match 从字符串开头精确匹配，不允许任何前缀或后缀偏差。
-    这是最高标准的格式要求。
+    使用 re.search 匹配，允许前缀内容，标签间允许任意空白。
 
     Args:
         completions: 模型生成的回答列表
         **kwargs: 其他额外参数
 
     Returns:
-        List[float]: 完全匹配 +0.5，否则 +0.0
+        List[float]: 包含正确标签 +0.5，否则 +0.0
     """
-    pattern = r"^<reasoning>\r?\n.*?\r?\n</reasoning>\r?\n<answer>\r?\n.*?\r?\n</answer>\r?\n?$"
+    pattern = r"<reasoning>.*?</reasoning>\s*<answer>.*?</answer>"
     responses = [completion[0]["content"] for completion in completions]
-    matches = [re.match(pattern, r, re.DOTALL) for r in responses]
+    matches = [re.search(pattern, r, re.DOTALL) for r in responses]
     return [0.5 if match else 0.0 for match in matches]
 
 
@@ -274,14 +265,12 @@ def soft_format_reward_func(completions, **kwargs) -> List[float]:
 
 def count_xml(text) -> float:
     """
-    XML 标签计数评分 — 检查标签完整性和位置。
+    XML 标签计数评分 — 检查标签完整性。
 
-    对每个标签分别评分:
-        - 格式完全正确（含换行）: +0.125
-        - 标签存在但格式不完美: +0.0625
+    对每个标签存在分别评分:
+        - 每个标签: +0.125
 
-    同时惩罚 </answer> 后的冗余内容（每字符 -0.001），
-    鼓励简洁输出，避免模型在答案后添加多余内容。
+    同时惩罚 </answer> 后的冗余内容（每字符 -0.001）。
 
     Args:
         text: 完整的模型回答文本
@@ -291,49 +280,18 @@ def count_xml(text) -> float:
     """
     count = 0.0
 
-    # 检查 <reasoning> 开始标签
-    if "<reasoning>\n" in text or "<reasoning>\r\n" in text:
+    if "<reasoning>" in text:
         count += 0.125
-    elif "<reasoning>" in text:
-        count += 0.0625  # 有标签但格式不完全正确
-
-    # 检查 </reasoning> 结束标签
-    if (
-        "\n</reasoning>\n" in text
-        or "\r\n</reasoning>\r\n" in text
-        or "\n</reasoning>\r\n" in text
-        or "\r\n</reasoning>\n" in text
-    ):
+    if "</reasoning>" in text:
         count += 0.125
-    elif "</reasoning>" in text:
-        count += 0.0625
-
-    # 检查 <answer> 开始标签
-    if (
-        "\n<answer>\n" in text
-        or "\r\n<answer>\r\n" in text
-        or "\n<answer>\r\n" in text
-        or "\r\n<answer>\n" in text
-    ):
+    if "<answer>" in text:
         count += 0.125
-    elif "<answer>" in text:
-        count += 0.0625
-
-    # 检查 </answer> 结束标签并扣分
-    if "\n</answer>\n" in text:
+    if "</answer>" in text:
         count += 0.125
-        tail = text.split("\n</answer>\n")[-1]
-        count -= len(tail) * 0.001
-    elif "\n</answer>" in text:
-        count += 0.125
-        tail = text.split("\n</answer>")[-1]
-        count -= len(tail) * 0.001
-    elif "</answer>" in text:
-        count += 0.0625
         tail = text.split("</answer>")[-1]
         count -= len(tail) * 0.001
 
-    return max(count, -0.5)  # 限制最低分为 -0.5
+    return max(count, -0.5)
 
 
 def xmlcount_reward_func(completions, **kwargs) -> List[float]:

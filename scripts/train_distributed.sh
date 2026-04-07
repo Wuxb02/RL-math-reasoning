@@ -112,7 +112,7 @@ echo "vLLM 服务器 PID: $VLLM_PID"
 
 # 等待 vLLM 服务器就绪
 echo "[2/3] 等待 vLLM 服务器就绪..."
-MAX_RETRIES=60
+MAX_RETRIES=300
 RETRY=0
 while ! curl -s "http://localhost:$VLLM_PORT/health" > /dev/null 2>&1; do
     RETRY=$((RETRY + 1))

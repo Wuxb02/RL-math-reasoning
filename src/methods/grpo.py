@@ -87,22 +87,24 @@ class GRPOMethod(BaseMethod):
             else self.training_config.get("warmup_steps", 0.1),
             lr_scheduler_type=self.training_config["lr_scheduler_type"],
             logging_steps=self.training_config["logging_steps"],
-            bf16=self.training_config["bf16"],
-            per_device_train_batch_size=self.training_config[
-                "per_device_train_batch_size"
-            ],
-            gradient_accumulation_steps=self.training_config[
-                "gradient_accumulation_steps"
-            ],
+            bf16=self.training_config.get("bf16", True),
+            per_device_train_batch_size=self.training_config.get(
+                "per_device_train_batch_size", 2
+            ),
+            gradient_accumulation_steps=self.training_config.get(
+                "gradient_accumulation_steps", 2
+            ),
             # 每个问题采样 G 个候选回答。
             # GRPO 会基于组内奖励均值/方差做相对归一化来构造优势信号。
-            num_generations=self.training_config["num_generations"],
-            max_completion_length=self.training_config["max_completion_length"],
+            num_generations=self.training_config.get("num_generations", 2),
+            max_completion_length=self.training_config.get(
+                "max_completion_length", 128
+            ),
             # KL 惩罚系数：约束新策略与参考策略偏移，避免奖励投机。
             beta=self.training_config.get("beta", 0.05),
-            num_train_epochs=self.training_config["num_train_epochs"],
-            save_steps=self.training_config["save_steps"],
-            max_grad_norm=self.training_config["max_grad_norm"],
+            num_train_epochs=self.training_config.get("num_train_epochs", 1),
+            save_steps=self.training_config.get("save_steps", 200),
+            max_grad_norm=self.training_config.get("max_grad_norm", 0.1),
             log_on_each_node=False,
             use_vllm=self.training_config.get("use_vllm", False),
             vllm_mode=self.training_config.get("vllm_mode", "colocate"),
@@ -111,6 +113,7 @@ class GRPOMethod(BaseMethod):
             ),
             reward_weights=reward_weights,
             report_to="wandb",
+            disable_tqdm=False,
         )
 
         trainer = GRPOTrainer(

@@ -108,16 +108,16 @@ def _make_rloo_reward_funcs():
 
         return rewards
 
-    def strict_format_reward(completions, **kwargs):
-        """严格格式奖励：要求 XML 标签与换行完全匹配模板。"""
+    def strict_format_reward(completions, answer, **kwargs):
+        """严格格式奖励：要求包含 XML 标签结构。"""
         import re
 
-        pattern = r"^<reasoning>\n.*?\n</reasoning>\n<answer>\n.*?\n</answer>\n$"
+        pattern = r"<reasoning>.*?</reasoning>\s*<answer>.*?</answer>"
         responses = [completion[0]["content"] for completion in completions]
-        matches = [re.match(pattern, r, re.DOTALL) for r in responses]
+        matches = [re.search(pattern, r, re.DOTALL) for r in responses]
         return [0.5 if match else 0.0 for match in matches]
 
-    def soft_format_reward(completions, **kwargs):
+    def soft_format_reward(completions, answer, **kwargs):
         """宽松格式奖励：只要求出现 reasoning/answer 标签结构。"""
         import re
 
@@ -126,14 +126,14 @@ def _make_rloo_reward_funcs():
         matches = [re.search(pattern, r, re.DOTALL) for r in responses]
         return [0.5 if match else 0.0 for match in matches]
 
-    def xmlcount_reward(completions, **kwargs):
+    def xmlcount_reward(completions, answer, **kwargs):
         """XML 标签计数奖励：按标签完整度与尾部冗余长度打分。"""
         from ..rewards.math_rewards import count_xml
 
         contents = [completion[0]["content"] for completion in completions]
         return [count_xml(c) for c in contents]
 
-    def reasoning_quality_reward(completions, **kwargs):
+    def reasoning_quality_reward(completions, answer, **kwargs):
         """
         推理质量奖励：鼓励清晰、分步、包含计算痕迹的 reasoning。
 
@@ -277,6 +277,7 @@ class RLOOMethod(BaseMethod):
                 "vllm_gpu_memory_utilization", 0.3
             ),
             report_to="wandb" if wandb.run else "none",
+            disable_tqdm=False,
         )
 
         reward_funcs = _make_rloo_reward_funcs()

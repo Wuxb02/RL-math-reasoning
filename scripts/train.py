@@ -69,6 +69,9 @@ def main():
     if "format_compliance" in results:
         print(f"Format Compliance: {results['format_compliance']:.2%}")
 
+    if args.wandb and wandb.run:
+        wandb.finish()
+
 
 if __name__ == "__main__":
     main()
