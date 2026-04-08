@@ -119,7 +119,7 @@ uv run python scripts/train.py --model configs/models/qwen3-0.6b.yaml --method c
 ```bash
 # 训练命令（0.6B / 1.7B 单卡）
 CUDA_VISIBLE_DEVICES=1 uv run python scripts/train.py --model configs/models/qwen3-0.6b.yaml --method configs/methods/grpo.yaml --wandb
-CUDA_VISIBLE_DEVICES=1  uv run python scripts/train.py --model configs/models/qwen3-1.7b.yaml --method configs/methods/rloo.yaml --wandb
+CUDA_VISIBLE_DEVICES=0  uv run python scripts/train.py --model configs/models/qwen3-1.7b.yaml --method configs/methods/rloo.yaml --wandb
 
 # 训练命令（4B 双卡，Linux/macOS）
 ./scripts/train_distributed.sh --model configs/models/qwen3-4b.yaml --method configs/methods/grpo.yaml --wandb

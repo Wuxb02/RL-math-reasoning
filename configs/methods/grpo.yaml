@@ -22,7 +22,7 @@ training:
   beta: 0.05
    
   # Generation
-  max_completion_length: 1024
+  max_completion_length: 768
 
   # Training
   num_train_epochs: 1

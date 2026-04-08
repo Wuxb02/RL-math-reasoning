@@ -27,7 +27,7 @@ training:
   gradient_accumulation_steps: 1
 
   # Generation
-  max_completion_length: 1024
+  max_completion_length: 768
   temperature: 0.7
   top_p: 0.9
   do_sample: true
@@ -56,9 +56,9 @@ lora:
     - "down_proj"
 
 reward:
-  xml_count_weight: 0.5
-  soft_format_weight: 0.5
-  strict_format_weight: 0.5
-  integer_weight: 0.5
-  reasoning_quality_weight: 0.3
+  xml_count_weight: 0.25
+  soft_format_weight: 0.25
+  strict_format_weight: 0.25
+  integer_weight: 0.1
+  reasoning_quality_weight: 0.2
   correctness_weight: 2.0

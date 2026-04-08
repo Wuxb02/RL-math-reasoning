@@ -27,7 +27,7 @@ training:
   gradient_accumulation_steps: 1
   
   # Generation
-  max_completion_length: 1024  # Replaces max_new_tokens
+  max_completion_length: 768  # Replaces max_new_tokens
   temperature: 0.7
   top_p: 0.9
   do_sample: true
