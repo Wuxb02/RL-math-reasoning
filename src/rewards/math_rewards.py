@@ -234,7 +234,7 @@ def strict_format_reward_func(completions, **kwargs) -> List[float]:
     Returns:
         List[float]: 包含正确标签 +0.25，否则 +0.0
     """
-    pattern = r"^<reasoning>.*?</reasoning>\s*<answer>.*?</answer>"
+    pattern = r"^\s*<reasoning>.*?</reasoning>\s*<answer>.*?</answer>"
     responses = [completion[0]["content"] for completion in completions]
     matches = [re.match(pattern, r, re.DOTALL) for r in responses]
     return [0.25 if match else 0.0 for match in matches]
@@ -375,12 +375,10 @@ def reasoning_quality_reward_func(completions, **kwargs) -> List[float]:
 
         # 4. 推理长度检查（鼓励适中长度）
         length = len(reasoning.strip())
-        if 30 <= length <= 150:
-            reward += 0.05
+        if length >= 30:
+            reward += 0.05  # 只要具备一定长度的思考过程就给予鼓励
         elif length < 20:
-            reward -= 0.1
-        elif length > 180:
-            reward -= 0.05
+            reward -= 0.1   # 惩罚过短的回答
 
         rewards.append(reward)
 

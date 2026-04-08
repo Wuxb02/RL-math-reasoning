@@ -52,13 +52,32 @@ def main():
     elif method_name == "RLOO":
         dataset = get_gsm8k_dataset(split="train")
         method = RLOOMethod(args.method)
+        # 1. 执行训练
         results = method.run(model, tokenizer, dataset, args.output)
+        
+        # 2. 唤醒评估：加载测试集并调用 evaluate
+        print("\nStarting evaluation on test set...")
+        test_dataset = get_gsm8k_dataset(split="test")
+        eval_results = method.evaluate(model, tokenizer, test_dataset)
+        
+        # 3. 将评估的指标合并到 results 字典中
+        results.update(eval_results)
+
     elif method_name == "GRPO":
         from src.methods.grpo import GRPOMethod
 
         dataset = get_gsm8k_dataset(split="train")
         method = GRPOMethod(args.method)
+        # 1. 执行训练
         results = method.run(model, tokenizer, dataset, args.output)
+        
+        # 2. 唤醒评估：加载测试集并调用 evaluate
+        print("\nStarting evaluation on test set...")
+        test_dataset = get_gsm8k_dataset(split="test")
+        eval_results = method.evaluate(model, tokenizer, test_dataset)
+        
+        # 3. 将评估的指标合并到 results 字典中
+        results.update(eval_results)
     else:
         print(f"Unknown method: {method_name}")
         sys.exit(1)
