@@ -1,8 +1,0 @@
-[
-  {
-    "model": "Qwen3-0.6B",
-    "method": "CoT",
-    "status": "skipped",
-    "reason": "CoT does not require training"
-  }
-]

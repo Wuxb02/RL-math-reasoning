@@ -222,21 +222,22 @@ def int_reward_func(completions, answer, **kwargs) -> List[float]:
 
 def strict_format_reward_func(completions, **kwargs) -> List[float]:
     """
-    严格格式奖励 — 要求包含 XML 标签结构（权重 0.5）。
+    严格格式奖励 — 要求以 <reasoning> 开头且包含完整 XML 结构（权重 0.25）。
 
-    使用 re.search 匹配，允许前缀内容，标签间允许任意空白。
+    使用 re.match 匹配，要求模型输出以 <reasoning> 开始，不允许前缀内容。
+    标签间允许任意空白。
 
     Args:
         completions: 模型生成的回答列表
         **kwargs: 其他额外参数
 
     Returns:
-        List[float]: 包含正确标签 +0.5，否则 +0.0
+        List[float]: 包含正确标签 +0.25，否则 +0.0
     """
-    pattern = r"<reasoning>.*?</reasoning>\s*<answer>.*?</answer>"
+    pattern = r"^<reasoning>.*?</reasoning>\s*<answer>.*?</answer>"
     responses = [completion[0]["content"] for completion in completions]
-    matches = [re.search(pattern, r, re.DOTALL) for r in responses]
-    return [0.5 if match else 0.0 for match in matches]
+    matches = [re.match(pattern, r, re.DOTALL) for r in responses]
+    return [0.25 if match else 0.0 for match in matches]
 
 
 def soft_format_reward_func(completions, **kwargs) -> List[float]:

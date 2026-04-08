@@ -16,7 +16,7 @@ RLOO 训练方法实现。
 
 import torch
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any
 from transformers import AutoModelForCausalLM
 from trl import RLOOConfig, RLOOTrainer
 from tqdm import tqdm
@@ -34,157 +34,6 @@ from ..rewards.math_rewards import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _make_rloo_reward_funcs():
-    """
-    创建适配 RLOOTrainer 的奖励函数包装器。
-
-    RLOOTrainer 的奖励函数签名:
-        reward_func(prompts, completions, completion_ids, **kwargs) -> List[float]
-
-    其中 conversational 格式下 completions 是 List[List[dict]]，
-    每个元素是 [{"content": "..."}] 形式。
-
-    我们现有的奖励函数已经接受 (completions, ...) 格式，
-    这里用闭包包装以兼容 RLOO 的调用方式。
-
-    返回顺序与 reward_weights 一一对应：
-    [xmlcount, soft_format, strict_format, int_answer, reasoning_quality, correctness]
-    """
-
-    def correctness_reward(completions, answer, **kwargs):
-        """
-        正确性奖励（主奖励项）。
-
-        参数:
-            completions: 模型采样输出，conversational 结构。
-            answer: 数据集标准答案列表。
-
-        返回:
-            List[float]: 正确给 2.0，错误给 -0.5，空答案给 -1.0。
-        """
-        responses = [completion[0]["content"] for completion in completions]
-        extracted_responses = [extract_xml_answer(r) for r in responses]
-
-        rewards = []
-        for resp, ans in zip(extracted_responses, answer):
-            resp_clean = resp.strip() if resp else ""
-            ans_clean = ans.strip() if ans else ""
-
-            if not resp_clean:
-                rewards.append(-1.0)
-            elif numeric_equivalence(resp_clean, ans_clean):
-                rewards.append(2.0)
-            else:
-                rewards.append(-0.5)
-
-        return rewards
-
-    def int_reward(completions, answer, **kwargs):
-        """
-        数字格式奖励（辅助奖励项）。
-
-        该奖励不关心答案是否正确，只检查 <answer> 内容能否解析为数字，
-        用于鼓励模型输出可判分的数值格式。
-        """
-        responses = [completion[0]["content"] for completion in completions]
-        extracted_responses = [extract_xml_answer(r) for r in responses]
-
-        rewards = []
-        for resp in extracted_responses:
-            resp_clean = resp.strip() if resp else ""
-            if not resp_clean:
-                rewards.append(-0.1)
-                continue
-
-            from ..rewards.math_rewards import parse_number
-
-            num = parse_number(resp_clean)
-            if num is not None:
-                rewards.append(0.1)
-            else:
-                rewards.append(-0.1)
-
-        return rewards
-
-    def strict_format_reward(completions, answer, **kwargs):
-        """严格格式奖励：要求包含 XML 标签结构。"""
-        import re
-
-        pattern = r"<reasoning>.*?</reasoning>\s*<answer>.*?</answer>"
-        responses = [completion[0]["content"] for completion in completions]
-        matches = [re.search(pattern, r, re.DOTALL) for r in responses]
-        return [0.5 if match else 0.0 for match in matches]
-
-    def soft_format_reward(completions, answer, **kwargs):
-        """宽松格式奖励：只要求出现 reasoning/answer 标签结构。"""
-        import re
-
-        pattern = r"<reasoning>.*?</reasoning>\s*<answer>.*?</answer>"
-        responses = [completion[0]["content"] for completion in completions]
-        matches = [re.search(pattern, r, re.DOTALL) for r in responses]
-        return [0.5 if match else 0.0 for match in matches]
-
-    def xmlcount_reward(completions, answer, **kwargs):
-        """XML 标签计数奖励：按标签完整度与尾部冗余长度打分。"""
-        from ..rewards.math_rewards import count_xml
-
-        contents = [completion[0]["content"] for completion in completions]
-        return [count_xml(c) for c in contents]
-
-    def reasoning_quality_reward(completions, answer, **kwargs):
-        """
-        推理质量奖励：鼓励清晰、分步、包含计算痕迹的 reasoning。
-
-        评分维度包括：步骤数量、是否包含算式、长度是否适中等。
-        """
-        import re
-
-        responses = [completion[0]["content"] for completion in completions]
-        rewards = []
-
-        for response in responses:
-            reward = 0.0
-
-            if "<reasoning>" in response and "</reasoning>" in response:
-                reasoning = response.split("<reasoning>")[1].split("</reasoning>")[0]
-            else:
-                rewards.append(0.0)
-                continue
-
-            steps = [line for line in reasoning.split("\n") if line.strip()]
-            if len(steps) >= 3:
-                reward += 0.1
-            if len(steps) >= 5:
-                reward += 0.1
-
-            if re.search(r"\d+\s*[\+\-\*\/]\s*\d+", reasoning):
-                reward += 0.1
-
-            if "=" in reasoning:
-                reward += 0.05
-
-            length = len(reasoning.strip())
-            if 30 <= length <= 150:
-                reward += 0.05
-            elif length < 20:
-                reward -= 0.1
-            elif length > 180:
-                reward -= 0.05
-
-            rewards.append(reward)
-
-        return rewards
-
-    return [
-        xmlcount_reward,
-        soft_format_reward,
-        strict_format_reward,
-        int_reward,
-        reasoning_quality_reward,
-        correctness_reward,
-    ]
 
 
 class RLOOMethod(BaseMethod):
@@ -246,9 +95,7 @@ class RLOOMethod(BaseMethod):
             adam_beta1=self.training_config.get("adam_beta1", 0.9),
             adam_beta2=self.training_config.get("adam_beta2", 0.99),
             weight_decay=self.training_config.get("weight_decay", 0.1),
-            warmup_steps=int(self.training_config.get("warmup_steps", 0.1) * 100)
-            if self.training_config.get("warmup_steps", 0.1) < 1
-            else self.training_config.get("warmup_steps", 0.1),
+            warmup_steps=self.training_config.get("warmup_steps", 50),
             lr_scheduler_type=self.training_config.get("lr_scheduler_type", "cosine"),
             logging_steps=self.training_config.get("logging_steps", 1),
             bf16=self.training_config.get("bf16", True) and torch.cuda.is_available(),
@@ -280,7 +127,14 @@ class RLOOMethod(BaseMethod):
             disable_tqdm=False,
         )
 
-        reward_funcs = _make_rloo_reward_funcs()
+        reward_funcs = [
+            xmlcount_reward_func,
+            soft_format_reward_func,
+            strict_format_reward_func,
+            int_reward_func,
+            reasoning_quality_reward_func,
+            correctness_reward_func,
+        ]
 
         trainer = RLOOTrainer(
             model=model,
