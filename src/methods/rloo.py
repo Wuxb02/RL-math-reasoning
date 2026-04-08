@@ -263,7 +263,7 @@ class RLOOMethod(BaseMethod):
             # 单次 batch 上执行的 RLOO 更新轮数。
             num_iterations=self.training_config.get("rloo_iterations", 1),
             max_completion_length=self.training_config.get(
-                "max_completion_length", 200
+                "max_completion_length", 1024
             ),
             num_train_epochs=self.training_config.get("num_train_epochs", 1),
             save_steps=self.training_config.get("save_steps", 100),

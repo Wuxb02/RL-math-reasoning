@@ -244,7 +244,7 @@ def soft_format_reward_func(completions, **kwargs) -> List[float]:
     宽松格式奖励 — 只要求 XML 标签存在，不要求严格换行（权重 0.5）。
 
     作为严格格式的"降级奖励"，即使格式不完美也能获得部分奖励。
-    使用 re.search 允许前缀内容，标签间允许任意空白。
+    只检查标签是否存在，不要求严格的正则匹配。
 
     设计目的:
         在训练初期，模型可能无法完全符合严格格式，
@@ -257,10 +257,14 @@ def soft_format_reward_func(completions, **kwargs) -> List[float]:
     Returns:
         List[float]: 包含正确标签 +0.5，否则 +0.0
     """
-    pattern = r"<reasoning>.*?</reasoning>\s*<answer>.*?</answer>"
     responses = [completion[0]["content"] for completion in completions]
-    matches = [re.search(pattern, r, re.DOTALL) for r in responses]
-    return [0.5 if match else 0.0 for match in matches]
+    rewards = []
+    for r in responses:
+        if "<reasoning>" in r and "<answer>" in r:
+            rewards.append(0.5)
+        else:
+            rewards.append(0.0)
+    return rewards
 
 
 def count_xml(text) -> float:
@@ -343,11 +347,15 @@ def reasoning_quality_reward_func(completions, **kwargs) -> List[float]:
         reward = 0.0
 
         # 提取 <reasoning> 标签内的推理内容
-        if "<reasoning>" in response and "</reasoning>" in response:
-            reasoning = response.split("<reasoning>")[1].split("</reasoning>")[0]
-        else:
+        if "<reasoning>" not in response:
             rewards.append(0.0)
             continue
+
+        reasoning_part = response.split("<reasoning>")[1]
+        if "</reasoning>" in reasoning_part:
+            reasoning = reasoning_part.split("</reasoning>")[0]
+        else:
+            reasoning = reasoning_part
 
         # 1. 检查推理步骤数量（每行视为一个步骤）
         steps = [line for line in reasoning.split("\n") if line.strip()]

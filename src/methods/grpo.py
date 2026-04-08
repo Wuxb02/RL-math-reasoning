@@ -98,7 +98,7 @@ class GRPOMethod(BaseMethod):
             # GRPO 会基于组内奖励均值/方差做相对归一化来构造优势信号。
             num_generations=self.training_config.get("num_generations", 2),
             max_completion_length=self.training_config.get(
-                "max_completion_length", 128
+                "max_completion_length", 1024
             ),
             # KL 惩罚系数：约束新策略与参考策略偏移，避免奖励投机。
             beta=self.training_config.get("beta", 0.05),

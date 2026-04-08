@@ -22,7 +22,7 @@ gradient_accumulation_steps: 1
 beta: 0.05
 
 # Generation
-max_completion_length: 128
+max_completion_length: 1024
 
 # Training
 num_train_epochs: 1

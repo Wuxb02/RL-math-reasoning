@@ -398,8 +398,8 @@ uv run python scripts/run_training.py
 
 | 参数 | 原值 | 优化值 | 说明 |
 |------|------|--------|------|
-| `num_generations` | 4 | 2 | 减半生成开销 |
-| `max_completion_length` | 200 | 128 | 覆盖 95%+ GSM8K 样本 |
+| `num_generations` | 4 | 4 | 提供更稳定的组内基线 |
+| `max_completion_length` | 200 | 1024 | 更长的生成长度 |
 | `gradient_accumulation_steps` | 4 | 2 | 减少同步开销 |
 | `vllm_mode` | colocate | server | 隔离 vLLM 到独立 GPU |
 | `save_steps` | 100 | 200 | 减少 checkpoint I/O |
@@ -566,15 +566,12 @@ else:
 
 **分值**：`0.5`（包含标签）| `0.0`（不包含）
 
-**正则表达式**：
-```
-<reasoning>.*?</reasoning>\s*<answer>.*?</answer>
-```
+**实现方式**：只检查 `<reasoning>` 和 `<answer>` 标签是否存在，不要求严格匹配。
 
 **改进点**：
-- 使用 `re.search` 替代 `re.match`，允许前缀内容
-- 支持标签间有任意空白（`\s*`）
-- 不要求严格的换行格式
+- 在训练初期提供渐进式引导
+- 即使 `<reasoning>` 未闭合也能获得部分奖励
+- 允许前缀内容和任意空白
 
 **示例**（以下都符合）：
 ```
@@ -616,6 +613,8 @@ reward = max(reward, -0.5)  # 限制最低分
 ### 6. 推理质量奖励 (reasoning_quality_reward_func)
 
 **分值**：`-0.15` ~ `0.4`
+
+**提取逻辑**：允许 `<reasoning>` 标签未闭合，只要存在 `<reasoning>` 就提取其后的内容进行评估。
 
 **评估维度**：
 

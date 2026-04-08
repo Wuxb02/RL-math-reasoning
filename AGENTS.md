@@ -274,7 +274,7 @@ GPU allocation:
 
 The method configs have been tuned for 2x 3090:
 - `num_generations: 2` (was 4) — halves generation overhead
-- `max_completion_length: 128` (was 200) — covers 95%+ of GSM8K samples
+- `max_completion_length: 1024` — larger context for complex reasoning
 - `gradient_accumulation_steps: 2` (was 4) — reduces sync overhead
 - `vllm_mode: "server"` — isolates vLLM to dedicated GPU
 - Flash Attention 2 enabled in model loader (RTX 3090 supported)
