@@ -1,7 +1,7 @@
 from .data import GSM8KDataset, get_gsm8k_dataset
 from .models import ModelLoader
 from .methods import BaseMethod, CoTMethod, RLOOMethod
-from .rewards import correctness_reward_func, int_reward_func, extract_xml_answer
+from .rewards import correctness_reward_func, int_reward_func
 from .evaluation import ExperimentEvaluator
 
 

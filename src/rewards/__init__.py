@@ -5,7 +5,6 @@ from .math_rewards import (
     soft_format_reward_func,
     xmlcount_reward_func,
     reasoning_quality_reward_func,
-    extract_xml_answer,
     parse_number,
     numeric_equivalence,
 )
@@ -17,7 +16,6 @@ __all__ = [
     "soft_format_reward_func",
     "xmlcount_reward_func",
     "reasoning_quality_reward_func",
-    "extract_xml_answer",
     "parse_number",
     "numeric_equivalence",
 ]

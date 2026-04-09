@@ -22,8 +22,8 @@ from trl import RLOOConfig, RLOOTrainer
 from tqdm import tqdm
 import wandb
 from .base import BaseMethod
+from ..data.gsm8k import extract_xml_answer
 from ..rewards.math_rewards import (
-    extract_xml_answer,
     numeric_equivalence,
     correctness_reward_func,
     int_reward_func,
@@ -189,7 +189,7 @@ class RLOOMethod(BaseMethod):
                 generated_ids = model.generate(
                     # 评估阶段使用贪心解码，减少采样噪声。
                     **model_inputs,
-                    max_new_tokens=512,
+                    max_new_tokens=1024,
                     temperature=0.0,
                     do_sample=False,
                 )

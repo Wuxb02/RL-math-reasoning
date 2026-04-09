@@ -25,28 +25,7 @@
 import re
 from typing import List, Optional
 from fractions import Fraction
-
-
-def extract_xml_answer(text: str) -> str:
-    """
-    从 XML 格式的响应中提取 <answer> 标签内容。
-
-    这是所有奖励函数和评估流程的基础工具函数，用于从模型生成的
-    完整回答中提取最终答案。
-
-    Args:
-        text: 模型生成的完整回答文本
-
-    Returns:
-        str: <answer> 标签内的内容，去除首尾空白。
-             如果标签不存在则返回空字符串。
-    """
-    if "<answer>" not in text or "</answer>" not in text:
-        return ""
-    answer = text.split("<answer>")[-1]
-    answer = answer.split("</answer>")[0]
-    return answer.strip()
-
+from ..data.gsm8k import extract_xml_answer
 
 def parse_number(text: str) -> Optional[float]:
     """

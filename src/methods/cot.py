@@ -20,8 +20,8 @@ import torch
 from typing import Dict, Any, List
 from tqdm import tqdm
 from .base import BaseMethod
-from ..rewards.math_rewards import extract_xml_answer, numeric_equivalence
-
+from ..rewards.math_rewards import numeric_equivalence
+from ..data.gsm8k import extract_xml_answer
 
 class CoTMethod(BaseMethod):
     """
@@ -177,7 +177,7 @@ class CoTMethod(BaseMethod):
         with torch.no_grad():
             generated_ids = model.generate(
                 **model_inputs,
-                max_new_tokens=self.generation_config.get("max_new_tokens", 512),
+                max_new_tokens=self.generation_config.get("max_new_tokens", 1024),
                 temperature=self.generation_config.get("temperature", 0.0),
                 do_sample=self.generation_config.get("do_sample", False),
             )

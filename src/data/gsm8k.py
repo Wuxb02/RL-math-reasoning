@@ -21,7 +21,6 @@ import re
 from typing import Optional
 from datasets import load_dataset, Dataset
 
-
 # XML 格式的思维链模板，用于 few-shot 示例
 XML_COT_FORMAT = """\
 <reasoning>
@@ -45,25 +44,13 @@ Respond in the following format:
 
 
 def extract_xml_answer(text: str) -> str:
-    """
-    从 XML 格式的响应中提取 <answer> 标签内容。
-
-    用于从模型生成的回答中提取最终答案，供评估和奖励函数使用。
-
-    Args:
-        text: 模型生成的完整回答文本
-
-    Returns:
-        str: <answer> 标签内的内容，如果标签不存在则返回空字符串
-
-    示例:
-        >>> extract_xml_answer("<reasoning>...\n</reasoning>\n<answer>\n42\n</answer>")
-        '42'
-    """
-    if "<answer>" not in text or "</answer>" not in text:
+    if "<answer>" not in text:
         return ""
+    # 取 <answer> 后面的所有内容
     answer = text.split("<answer>")[-1]
-    answer = answer.split("</answer>")[0]
+    # 如果有闭合标签，就截断它；如果没有（被截断了），就保留现有的部分
+    if "</answer>" in answer:
+        answer = answer.split("</answer>")[0]
     return answer.strip()
 
 

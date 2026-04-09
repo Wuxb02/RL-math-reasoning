@@ -16,6 +16,7 @@ from trl import GRPOConfig, GRPOTrainer
 from tqdm import tqdm
 import wandb
 from .base import BaseMethod
+from ..data.gsm8k import extract_xml_answer
 from ..rewards.math_rewards import (
     correctness_reward_func,
     int_reward_func,
@@ -23,9 +24,9 @@ from ..rewards.math_rewards import (
     soft_format_reward_func,
     xmlcount_reward_func,
     reasoning_quality_reward_func,
-    extract_xml_answer,
     numeric_equivalence,
 )
+
 
 
 class GRPOMethod(BaseMethod):
@@ -173,7 +174,7 @@ class GRPOMethod(BaseMethod):
                 generated_ids = model.generate(
                     # 评估使用确定性解码，降低随机采样带来的方差。
                     **model_inputs,
-                    max_new_tokens=512,
+                    max_new_tokens=1024,
                     temperature=0.0,
                     do_sample=False,
                 )
