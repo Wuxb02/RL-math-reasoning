@@ -13,29 +13,29 @@ training:
   logging_steps: 1
   bf16: true
 
-# GRPO specific — moderately increased for 1.7B single-GPU
-num_generations: 4
-per_device_train_batch_size: 4
-gradient_accumulation_steps: 1
+  # GRPO specific — moderately increased for 1.7B single-GPU
+  num_generations: 4
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 1
 
-# KL penalty
-beta: 0.05
+  # KL penalty
+  beta: 0.05
 
-# Generation
-max_completion_length: 768
+  # Generation
+  max_completion_length: 1024
 
-# Training
-num_train_epochs: 1
-max_grad_norm: 0.1
+  # Training
+  num_train_epochs: 1
+  max_grad_norm: 0.1
 
-# Saving
-save_steps: 200
-output_dir: "outputs"
+  # Saving
+  save_steps: 200
+  output_dir: "outputs"
 
-# vLLM acceleration — colocate mode with conservative memory util for 1.7B
-use_vllm: true
-vllm_mode: "colocate"
-vllm_gpu_memory_utilization: 0.4
+  # vLLM acceleration — colocate mode with conservative memory util for 1.7B
+  use_vllm: true
+  vllm_mode: "colocate"
+  vllm_gpu_memory_utilization: 0.4
 
 lora:
   enabled: true

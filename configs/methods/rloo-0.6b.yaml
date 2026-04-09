@@ -14,7 +14,8 @@ training:
 
   # RLOO specific — increased for 0.6B single-GPU throughput
   num_generations: 4
-  per_device_train_batch_size: 16
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 2
   rloo_iterations: 1
 
   # KL penalty
@@ -24,10 +25,9 @@ training:
   num_train_epochs: 1
   bf16: true
   max_grad_norm: 0.1
-  gradient_accumulation_steps: 1
 
   # Generation
-  max_completion_length: 512
+  max_completion_length: 1024
   temperature: 0.7
   top_p: 0.9
   do_sample: true
@@ -36,10 +36,10 @@ training:
   save_steps: 200
   output_dir: "outputs"
 
-# vLLM acceleration — colocate mode for single GPU (0.6B is small enough)
-use_vllm: true
-vllm_mode: "colocate"
-vllm_gpu_memory_utilization: 0.8
+  # vLLM acceleration — colocate mode for single GPU (0.6B is small enough)
+  use_vllm: true
+  vllm_mode: "colocate"
+  vllm_gpu_memory_utilization: 0.8
 
 lora:
   enabled: true
