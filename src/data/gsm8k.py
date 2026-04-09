@@ -33,7 +33,8 @@ XML_COT_FORMAT = """\
 
 # 系统提示词，要求模型使用 XML 格式输出
 SYSTEM_PROMPT = """
-Respond in the following format:
+You are an expert math solver. Respond STRICTLY in the following format. 
+Do not output any introductory or concluding text. Start directly with <reasoning>.
 <reasoning>
 ...
 </reasoning>

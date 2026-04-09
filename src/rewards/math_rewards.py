@@ -115,15 +115,17 @@ def numeric_equivalence(answer: str, expected: str) -> bool:
 
 def correctness_reward_func(prompts, completions, answer, **kwargs) -> List[float]:
     """
-    正确性奖励 — 最核心的奖励信号（权重 2.0）。
+    正确性奖励 — 最核心的奖励信号（基础权重 2.0）。
 
     从 <answer> 标签中提取答案，与标准答案进行数值等价比较。
-    这是引导模型学到正确解题方法的关键信号。
+    本次更新增加了“截断容忍”机制：如果模型算对了数字，但因为 token 长度耗尽
+    导致没有生成 </answer> 闭合标签，依然会给予高分，避免误杀导致训练崩溃。
 
     评分策略:
-        - 空答案: -1.0（严重惩罚，引导模型必须输出内容）
-        - 完全正确: +2.0（最高奖励，包含数值等价判断）
-        - 错误答案: -0.5（小惩罚，不至于完全否定）
+        - 完全正确且格式完整: +2.0（最高奖励，包含数值等价判断且有闭合标签）
+        - 答案正确但被截断: +1.5（由于长度限制没能输出 </answer>，扣 0.5 作为格式不完整的惩罚）
+        - 错误答案: -0.5（小惩罚，不至于完全否定前面的推理探索）
+        - 空答案/未提取出答案: -1.0（严重惩罚，引导模型必须在可用长度内输出内容）
 
     Args:
         prompts: 输入的 prompt 列表（未使用，但 TRL 会传入）
@@ -134,20 +136,36 @@ def correctness_reward_func(prompts, completions, answer, **kwargs) -> List[floa
     Returns:
         List[float]: 每个样本的正确性奖励值
     """
+    # 提取模型生成的原始回答文本
     responses = [completion[0]["content"] for completion in completions]
+    
+    # 使用修改后的 extract_xml_answer 提取出的答案内容
+    # 注意：确保你前面的 extract_xml_answer 已经修改为了可以兼容截断的版本
     extracted_responses = [extract_xml_answer(r) for r in responses]
 
     rewards = []
-    for resp, ans in zip(extracted_responses, answer):
-        resp_clean = resp.strip() if resp else ""
+    # 同时遍历原始文本、提取后的答案和标准答案
+    for resp, extracted, ans in zip(responses, extracted_responses, answer):
+        resp_clean = extracted.strip() if extracted else ""
         ans_clean = ans.strip() if ans else ""
 
+        # 第一步：先判断答案是否为空
         if not resp_clean:
-            # 空答案：严重惩罚
+            # 空答案（没有 <answer> 标签或标签后无内容）：严重惩罚
             rewards.append(-1.0)
+            
+        # 第二步：判断答案数值是否正确
         elif numeric_equivalence(resp_clean, ans_clean):
-            # 完全正确（含数值等价）
-            rewards.append(2.0)
+            # 算对了！接下来检查是不是完整输出的
+            if "</answer>" in resp:
+                # 完美完成：算对且格式闭合
+                rewards.append(2.0)
+            else:
+                # 截断妥协：算对了，但因为长度限制被强行掐断，没写完 </answer>
+                # 扣除 0.5 的格式不完整惩罚，但依然给予高分鼓励它算对了的思路
+                rewards.append(1.5)
+                
+        # 第三步：只要数值不对，就是错的
         else:
             # 错误答案：小惩罚
             rewards.append(-0.5)
