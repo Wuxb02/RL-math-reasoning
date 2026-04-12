@@ -35,11 +35,12 @@ XML_COT_FORMAT = """\
 SYSTEM_PROMPT = """
 You are an expert math solver. Respond STRICTLY in the following format. 
 Do not output any introductory or concluding text. Start directly with <reasoning>.
+
 <reasoning>
-...
+Your step-by-step thinking process here.
 </reasoning>
 <answer>
-...
+Your final numerical answer here.
 </answer>
 """
 

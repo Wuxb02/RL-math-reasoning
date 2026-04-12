@@ -89,6 +89,11 @@ class CoTMethod(BaseMethod):
                 - total: 总样本数量
                 - results: 每条样本的详细结果列表
         """
+
+        if hasattr(model, "gradient_checkpointing_disable"):
+            model.gradient_checkpointing_disable()
+        model.config.use_cache = True
+
         correct = 0
         total = 0
         format_correct = 0

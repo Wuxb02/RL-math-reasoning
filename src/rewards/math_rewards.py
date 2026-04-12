@@ -219,22 +219,25 @@ def int_reward_func(completions, answer, **kwargs) -> List[float]:
 
 def strict_format_reward_func(completions, **kwargs) -> List[float]:
     """
-    严格格式奖励 — 要求以 <reasoning> 开头且包含完整 XML 结构（权重 0.25）。
-
-    使用 re.match 匹配，要求模型输出以 <reasoning> 开始，不允许前缀内容。
-    标签间允许任意空白。
-
-    Args:
-        completions: 模型生成的回答列表
-        **kwargs: 其他额外参数
-
-    Returns:
-        List[float]: 包含正确标签 +0.25，否则 +0.0
+    严格格式奖励 — 兼容截断的版本。
     """
-    pattern = r"^\s*<reasoning>.*?</reasoning>\s*<answer>.*?</answer>"
+    # 匹配完整的结构
+    full_pattern = r"<reasoning>.*?</reasoning>\s*<answer>.*?</answer>"
+    # 匹配被截断的结构（有完整的 reasoning，并且开启了 answer 标签）
+    truncated_pattern = r"<reasoning>.*?</reasoning>\s*<answer>.*"
+    
     responses = [completion[0]["content"] for completion in completions]
-    matches = [re.match(pattern, r, re.DOTALL) for r in responses]
-    return [0.25 if match else 0.0 for match in matches]
+    rewards = []
+    
+    for r in responses:
+        if re.search(full_pattern, r, re.DOTALL):
+            rewards.append(0.25)  # 完美格式
+        elif re.search(truncated_pattern, r, re.DOTALL):
+            rewards.append(0.15)  # 格式基本正确，但可能被截断了，给部分奖励
+        else:
+            rewards.append(0.0)   # 格式错误
+            
+    return rewards
 
 
 def soft_format_reward_func(completions, **kwargs) -> List[float]:

@@ -162,6 +162,10 @@ class RLOOMethod(BaseMethod):
         - accuracy: 数值等价准确率（支持 0.5、1/2、50% 等价）。
         - format_compliance: 是否包含 XML 结构标签的比例。
         """
+        if hasattr(model, "gradient_checkpointing_disable"):
+            model.gradient_checkpointing_disable()
+            model.config.use_cache = True
+
         correct = 0
         total = 0
         format_correct = 0

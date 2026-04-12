@@ -147,6 +147,11 @@ class GRPOMethod(BaseMethod):
         - accuracy：答案数值等价准确率。
         - format_compliance：是否满足 XML 标签结构的比例。
         """
+
+        if hasattr(model, "gradient_checkpointing_disable"):
+            model.gradient_checkpointing_disable()
+            model.config.use_cache = True
+
         correct = 0
         total = 0
         format_correct = 0

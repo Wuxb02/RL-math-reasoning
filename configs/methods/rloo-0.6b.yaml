@@ -4,7 +4,7 @@ method:
   description: "Reinforce Leave-One-Out (RLOO) — Optimized for Qwen3-0.6B (single GPU)"
 
 training:
-  learning_rate: 5.0e-6
+  learning_rate: 1.0e-6
   adam_beta1: 0.9
   adam_beta2: 0.99
   weight_decay: 0.1
@@ -24,7 +24,7 @@ training:
   # Training
   num_train_epochs: 1
   bf16: true
-  max_grad_norm: 0.1
+  max_grad_norm: 1
 
   # Generation
   max_completion_length: 1024
