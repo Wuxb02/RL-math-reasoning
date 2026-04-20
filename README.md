@@ -58,7 +58,7 @@ uv run python scripts/run_evaluation.py
 # 4B 模型手动双卡训练（GPU0 训练 + GPU1 vLLM 推理）
 ./scripts/train_distributed.sh \
     --model configs/models/qwen3-4b.yaml \
-    --method configs/methods/grpo.yaml
+    --method configs/methods/rloo.yaml
 
 # 或使用完整 Python 路径（Windows）
 "D:\anaconda\python.exe" "F:\RL-math-reasoning\scripts\run_training.py"
@@ -70,13 +70,13 @@ uv run python scripts/run_evaluation.py
 
 ```bash
 # 单个训练（使用 uv）
-uv run python scripts/train.py --model configs/models/qwen3-0.6b.yaml --method configs/methods/rloo.yaml --wandb
+CUDA_VISIBLE_DEVICES=0 uv run python scripts/train.py --model configs/models/qwen3-0.6b.yaml --method configs/methods/rloo.yaml --wandb
 
 # 单个评估（CoT 无需训练，直接评估）
-uv run python scripts/evaluate.py --model configs/models/qwen3-0.6b.yaml --method CoT
+CUDA_VISIBLE_DEVICES=1 uv run python scripts/evaluate.py --model configs/models/qwen3-0.6b.yaml --method CoT
 
 # 单个评估（RLOO/GRPO 需指定 checkpoint）
-uv run python scripts/evaluate.py --model configs/models/qwen3-0.6b.yaml --checkpoint outputs/checkpoints/Qwen3-0.6B-GRPO --method GRPO
+CUDA_VISIBLE_DEVICES=0 uv run python scripts/evaluate.py --model configs/models/qwen3-4b.yaml --checkpoint outputs/checkpoints/Qwen3-4B-RLOO --method RLOO
 
 # Windows 完整路径版本
 "D:\anaconda\python.exe" "F:\RL-math-reasoning\scripts\train.py" --model configs/models/qwen3-0.6b.yaml --method configs/methods/grpo.yaml --wandb

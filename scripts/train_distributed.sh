@@ -104,7 +104,7 @@ CUDA_VISIBLE_DEVICES=1 uv run trl vllm-serve \
     --port "$VLLM_PORT" \
     --gpu-memory-utilization 0.9 \
     --dtype bfloat16 \
-    --log_level info &
+    --log_level warning &
 
 VLLM_PID=$!
 echo "vLLM 服务器 PID: $VLLM_PID"
