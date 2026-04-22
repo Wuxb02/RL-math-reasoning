@@ -154,7 +154,7 @@ class RLOOMethod(BaseMethod):
         model: AutoModelForCausalLM,
         tokenizer: Any,
         test_dataset: Any,
-    ) -> Dict[str, float]:
+    ) -> Dict[str, Any]:
         """
         在测试集上评估 RLOO 模型。
 
@@ -169,6 +169,7 @@ class RLOOMethod(BaseMethod):
         correct = 0
         total = 0
         format_correct = 0
+        results = []
 
         for item in tqdm(test_dataset, desc="Evaluating RLOO"):
             question = item["question"]
@@ -206,16 +207,30 @@ class RLOOMethod(BaseMethod):
                 0
             ]
             extracted_answer = extract_xml_answer(response)
+            is_correct = numeric_equivalence(extracted_answer, expected_answer)
+            has_format = "<reasoning>" in response and "<answer>" in response
 
-            if numeric_equivalence(extracted_answer, expected_answer):
+            if is_correct:
                 correct += 1
-            if "<reasoning>" in response and "<answer>" in response:
+            if has_format:
                 format_correct += 1
             total += 1
+
+            results.append(
+                {
+                    "question": question,
+                    "expected": expected_answer,
+                    "predicted": extracted_answer,
+                    "full_response": response,
+                    "correct": is_correct,
+                    "format_ok": has_format,
+                }
+            )
 
         return {
             "accuracy": correct / total if total > 0 else 0,
             "format_compliance": format_correct / total if total > 0 else 0,
             "correct": correct,
             "total": total,
+            "results": results,
         }

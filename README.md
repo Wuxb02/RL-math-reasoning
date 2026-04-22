@@ -64,7 +64,13 @@ uv run python scripts/run_evaluation.py
 "D:\anaconda\python.exe" "F:\RL-math-reasoning\scripts\run_training.py"
 ```
 
-训练和评估完全分离，训练输出保存在 `outputs/checkpoints/`，评估结果保存在 `outputs/results/`。
+默认情况下，`scripts/run_training.py` 会遍历 3 个模型配置和 7 个方法配置（包含 `rloo-0.6b.yaml`、`rloo-1.7b.yaml`、`grpo-0.6b.yaml`、`grpo-1.7b.yaml` 这些单卡优化配置）；其中 CoT 组合会在训练阶段自动跳过，4B 模型会自动切换到 `scripts/train_distributed.sh`。
+
+训练和评估完全分离：
+- `scripts/run_training.py` 默认输出到 `outputs/checkpoints/`
+- `scripts/train.py` 默认输出到 `outputs/<模型名>-<方法名>`
+- `scripts/run_evaluation.py` 默认输出到 `outputs/results/`
+- `scripts/evaluate.py` 默认输出单次评估结果到 `outputs/results/<模型名>_<方法名>_eval.json`
 
 #### 单个运行
 
@@ -88,14 +94,17 @@ CUDA_VISIBLE_DEVICES=0 uv run python scripts/evaluate.py --model configs/models/
 # Linux/macOS
 cat outputs/results/comparison_report.txt
 cat outputs/results/evaluation_results.json
+cat outputs/results/Qwen3-0.6B_CoT_eval.json
 
 # Windows (CMD)
 type outputs\results\comparison_report.txt
 type outputs\results\evaluation_results.json
+type outputs\results\Qwen3-0.6B_CoT_eval.json
 
 # Windows (PowerShell)
 Get-Content outputs\results\comparison_report.txt
 Get-Content outputs\results\evaluation_results.json
+Get-Content outputs\results\Qwen3-0.6B_CoT_eval.json
 ```
 
 ## Windows 环境使用
@@ -113,6 +122,8 @@ uv run python scripts/train.py --model configs/models/qwen3-0.6b.yaml --method c
 # 或使用完整 Python 路径
 "D:\anaconda\python.exe" "F:\RL-math-reasoning\scripts\train.py" --model configs/models/qwen3-0.6b.yaml --method configs/methods/grpo.yaml --wandb
 ```
+
+如果需要让单次训练也落到 `outputs/checkpoints/`，请显式传入 `--output outputs/checkpoints/<目录名>`。
 
 ### 2. 常用命令速查
 
@@ -182,13 +193,18 @@ GRPO-math/
 │   └── methods/             # 方法配置
 │       ├── cot.yaml
 │       ├── rloo.yaml
-│       └── grpo.yaml
+│       ├── rloo-0.6b.yaml
+│       ├── rloo-1.7b.yaml
+│       ├── grpo.yaml
+│       ├── grpo-0.6b.yaml
+│       └── grpo-1.7b.yaml
 ├── src/
 │   ├── data/                # GSM8K 数据加载
 │   │   └── gsm8k.py
 │   ├── models/              # 模型加载器
 │   │   └── loader.py
 │   ├── methods/             # 三种方法实现
+│   │   ├── base.py          # 方法抽象基类
 │   │   ├── cot.py           # CoT 推理基线
 │   │   ├── rloo.py          # RLOO 训练
 │   │   └── grpo.py          # GRPO 训练
@@ -205,6 +221,7 @@ GRPO-math/
 │   ├── evaluate.py          # 单个模型评估
 │   ├── run_training.py      # 批量训练（自动检测 4B 切换双卡）
 │   ├── run_evaluation.py    # 批量评估 + 自动对比
+│   ├── run_all.py           # 训练+评估一键运行入口
 │   └── visualize.py         # 结果可视化
 ├── resources/               # 模型和数据（gitignored）
 │   ├── Qwen3-0.6B/
@@ -238,7 +255,7 @@ GRPO-math/
 │  │   (自动检测 4B 双卡)  │    │   train_distributed.sh (4B) │   │
 │  └───────────────────────┘    └─────────────────────────────┘   │
 │           ↓                                                     │
-│  outputs/checkpoints/                                           │
+│  outputs/checkpoints/ 或 outputs/<模型名>-<方法名>/             │
 │    ├── Qwen3-0.6B-RLOO/                                         │
 │    ├── Qwen3-0.6B-GRPO/                                         │
 │    ├── Qwen3-1.7B-RLOO/                                         │
@@ -254,6 +271,7 @@ GRPO-math/
 │  └───────────────────────┘    └─────────────────────────────┘   │
 │           ↓                                                     │
 │  outputs/results/                                               │
+│    ├── Qwen3-0.6B_CoT_eval.json                                 │
 │    ├── evaluation_results.json                                  │
 │    └── comparison_report.txt                                    │
 └─────────────────────────────────────────────────────────────────┘
@@ -270,7 +288,7 @@ GRPO-math/
 ### CoT（Chain-of-Thought）
 
 - 无需训练，通过精心设计的提示词引导模型推理
-- 使用 XML 格式的思维链模板（zero-shot，不含 few-shot 示例）
+- 默认使用 XML 格式的思维链模板（zero-shot；代码也支持在配置中加入 few-shot 示例）
 - 评估时使用数值等价判断（`numeric_equivalence`），与 RLOO/GRPO 保持一致
 - 适合作为基线对比
 
@@ -460,12 +478,12 @@ lora:
 |----------|----------|----------|--------|
 | 正确性奖励 | -1.0 ~ 2.0 | 答案正确性 | 最高 |
 | 数字格式奖励 | -0.1 ~ 0.1 | 答案格式检测 | 中 |
-| 严格格式奖励 | 0 ~ 0.5 | XML格式规范 | 高 |
+| 严格格式奖励 | 0 ~ 0.25 | XML格式规范 | 高 |
 | 宽松格式奖励 | 0 ~ 0.5 | 基本格式规范 | 中 |
 | XML标签计数 | -0.5 ~ 0.5 | 标签完整性 | 中 |
-| 推理质量奖励 | -0.15 ~ 0.4 | 推理过程质量 | 低 |
+| 推理质量奖励 | -0.1 ~ 0.4 | 推理过程质量 | 低 |
 
-**总奖励范围**：-1.75 ~ 4.4（各奖励函数加权求和）
+**按默认 `reward_weights` 加权后的理论总奖励范围**：约 `-2.16 ~ 4.40`
 
 ---
 
@@ -538,11 +556,16 @@ else:
 
 ### 3. 严格格式奖励 (strict_format_reward_func)
 
-**分值**：`0.5`（匹配）| `0.0`（不匹配）
+**分值**：`0.25`（完整匹配）| `0.15`（`<answer>` 被截断但结构基本正确）| `0.0`（不匹配）
 
 **正则表达式**：
 ```
 <reasoning>.*?</reasoning>\s*<answer>.*?</answer>
+```
+
+**兼容截断的补充匹配**：
+```
+<reasoning>.*?</reasoning>\s*<answer>.*
 ```
 
 **要求格式**：
@@ -558,7 +581,8 @@ else:
 **注意事项**：
 - 使用 `re.search` 匹配，允许前缀内容
 - 标签间允许任意空白（换行、空格等）
-- 只要包含正确的开闭标签即可得分
+- 完整闭合标签得 `0.25`
+- 如果 `<reasoning>` 完整且 `<answer>` 已开启但尚未闭合，会给 `0.15` 的部分奖励
 
 ---
 
@@ -612,7 +636,7 @@ reward = max(reward, -0.5)  # 限制最低分
 
 ### 6. 推理质量奖励 (reasoning_quality_reward_func)
 
-**分值**：`-0.15` ~ `0.4`
+**分值**：`-0.1` ~ `0.4`
 
 **提取逻辑**：允许 `<reasoning>` 标签未闭合，只要存在 `<reasoning>` 就提取其后的内容进行评估。
 
@@ -624,9 +648,8 @@ reward = max(reward, -0.5)  # 限制最低分
 | 步骤数量 | ≥5 步 | +0.1 |
 | 数字计算 | 包含 `+`, `-`, `*`, `/` 运算 | +0.1 |
 | 计算过程 | 包含 `=` 符号 | +0.05 |
-| 长度适中 | 30-150 字符 | +0.05 |
+| 长度足够 | ≥30 字符 | +0.05 |
 | 太短 | <20 字符 | -0.1 |
-| 太长 | >180 字符 | -0.05 |
 
 **示例**（高质量推理）：
 ```
