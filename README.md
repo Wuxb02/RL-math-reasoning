@@ -82,7 +82,7 @@ CUDA_VISIBLE_DEVICES=0 uv run python scripts/train.py --model configs/models/qwe
 CUDA_VISIBLE_DEVICES=1 uv run python scripts/evaluate.py --model configs/models/qwen3-0.6b.yaml --method CoT
 
 # 单个评估（RLOO/GRPO 需指定 checkpoint）
-CUDA_VISIBLE_DEVICES=0 uv run python scripts/evaluate.py --model configs/models/qwen3-4b.yaml --checkpoint outputs/checkpoints/Qwen3-4B-RLOO --method RLOO
+CUDA_VISIBLE_DEVICES=1 uv run python scripts/evaluate.py --model configs/models/qwen3-4b.yaml --checkpoint outputs/checkpoints/Qwen3-4B-GRPO --method GRPO
 
 # Windows 完整路径版本
 "D:\anaconda\python.exe" "F:\RL-math-reasoning\scripts\train.py" --model configs/models/qwen3-0.6b.yaml --method configs/methods/grpo.yaml --wandb
